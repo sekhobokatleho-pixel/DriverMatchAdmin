@@ -49,6 +49,11 @@ button.sm{padding:6px 10px;font-size:14px}
 </head>
 <body>
 <div class="wrap" id="app"></div>
+  <script>
+document.getElementById('app').textContent = 'Starting…';
+window.onerror = function(m, s, l){ document.getElementById('app').insertAdjacentHTML('beforeend', '<p style="color:#c0392b">Error: ' + m + ' (line ' + l + ')</p>'); };
+window.onunhandledrejection = function(e){ document.getElementById('app').insertAdjacentHTML('beforeend', '<p style="color:#c0392b">Error: ' + ((e.reason && e.reason.message) || e.reason) + '</p>'); };
+  </script>
 <script>
 const app = document.getElementById('app');
 const C = window.DM || {};
