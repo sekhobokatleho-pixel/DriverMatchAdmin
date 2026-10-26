@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DriverMatch Admin</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mut:#667085;--ac:#0b5cad;--bd:#e3e6eb;--er:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101317;--card:#1a1f26;--tx:#eef1f5;--mut:#9aa4b2;--ac:#4da3ff;--bd:#2a313b;--er:#ff7a6b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101317;--card:#1a1f26;--tx:#eef1f5;--mut:#9aa4b2;--ac:#4da3ff;--bd:#2a313b;--er:#ff7a6b;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:14px}
+h1{margin:6px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:0 0 10px}
+.mut{color:var(--mut);font-size:13px;margin:2px 0 8px}
+input{width:100%;box-sizing:border-box;padding:10px;margin:0 0 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+button{padding:9px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit}
+button.on,button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.tabs{display:flex;gap:6px;margin:0 0 10px;overflow-x:auto}
+.top{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
+#msg{min-height:20px;margin:0 0 6px;font-weight:600}
+</style></head><body><main>
+<div id="msg"></div><div id="app"></div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const sb=supabase.createClient('https://wpqmqduwbqlrmhhtqsnw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc');
+const $=id=>document.getElementById(id),app=$('app');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const note=(t,bad)=>{$('msg').textContent=t;$('msg').style.color=bad?'var(--er)':'var(--ac)'};
+const C={
+ driver_profiles:{label:'Drivers',id:'user_id',st:'verification_status',note:'rejection_reason',ok:'approved',no:'rejected',t:r=>`${r.driver_code} · ${r.licence_type} · ${r.city||'no area'} · offers R${r.weekly_offer||0}/wk`},
+ vehicles:{label:'Vehicles',id:'id',st:'status',note:'rejection_reason',ok:'approved',no:'rejected',t:r=>`${r.vehicle_code} · ${r.make} ${r.model} ${r.year} · ${r.city||'no area'} · asks R${r.weekly_amount}/wk`},
+ documents:{label:'Documents',id:'id',st:'status',note:'admin_note',ok:'approved',no:'rejected',view:1,t:r=>`${r.doc_type} · user ${String(r.user_id).slice(0,8)}`},
+ reports:{label:'Reports',id:'id',st:'status',ok:'resolved',okLabel:'Resolve',t:r=>`${r.reason}${r.details?': '+r.details:''}`}
+};
+let tab='driver_profiles',rows=[];
+
+function loginView(){app.innerHTML=`<h1>DriverMatch Admin</h1><div class="card"><input id="em" type="email" placeholder="Admin email"><input id="pw" type="password" placeholder="Password"><button class="pri" onclick="logIn()">Log in</button></div>`}
+async function logIn(){const{data,error}=await sb.auth.signInWithPassword({email:$('em').value,password:$('pw').value});
+ if(error)return note(error.message,1);check(data.user)}
+async function check(u){const{data}=await sb.from('profiles').select('role').eq('id',u.id).maybeSingle();
+ if(!data||data.role!='admin'){await sb.auth.signOut();return note('This account is not an admin.',1)}
+ note('');home()}
+async function out(){await sb.auth.signOut();loginView()}
+function home(){
+ app.innerHTML=`<div class="top"><b>DriverMatch Admin</b><button onclick="out()">Log out</button></div>
+ <div class="tabs">${Object.keys(C).map(k=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';home()">${C[k].label}</button>`).join('')}</div><div id="body">Loading…</div>`;
+ load()}
+async function load(){const c=C[tab];const{data,error}=await sb.from(tab).select('*').order('created_at',{ascending:false});
+ if(error){$('body').innerHTML='';return note(error.message,1)}
+ rows=data;
+ $('body').innerHTML=rows.length?rows.map((r,i)=>`<div class="card"><b>${esc(c.t(r))}</b>
+  <div class="mut">Status: ${esc(r[c.st])}${r[c.note]?' · '+esc(r[c.note]):''}</div>
+  ${c.view?`<button onclick="view(${i})">View file</button> `:''}
+  <button class="pri" onclick="act(${i},1)">${c.okLabel||'Approve'}</button>${c.no?` <button onclick="act(${i},0)">Reject</button>`:''}</div>`).join(''):'<p class="mut">Nothing here yet.</p>'}
+async function act(i,ok){const c=C[tab],r=rows[i],u={[c.st]:ok?c.ok:c.no};
+ if(!ok&&c.note){const n=prompt('Reason for rejecting?');if(n===null)return;u[c.note]=n}
+ const{error}=await sb.from(tab).update(u).eq(c.id,r[c.id]);error?note(error.message,1):(note('Saved.'),load())}
+async function view(i){const{data,error}=await sb.storage.from('documents').createSignedUrl(rows[i].file_path,3600);
+ error?note(error.message,1):window.open(data.signedUrl,'_blank')}
+(async()=>{const{data:{session}}=await sb.auth.getSession();session?check(session.user):loginView()})();
+</script></body></html>
