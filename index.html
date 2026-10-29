@@ -1,240 +1,245 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>DriverMatch</title>
-<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b7a4b"><link rel="apple-touch-icon" href="icon-192.png">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DriverMatch Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mut:#667085;--ac:#0b7a4b;--bd:#e3e6eb;--er:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101317;--card:#1a1f26;--tx:#eef1f5;--mut:#9aa4b2;--ac:#2fbf80;--bd:#2a313b;--er:#ff7a6b;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#101317;--card:#1a1f26;--tx:#eef1f5;--mut:#9aa4b2;--ac:#2fbf80;--bd:#2a313b;--er:#ff7a6b;color-scheme:dark}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:560px;margin:0 auto;padding:14px}
-h1{margin:6px 0 12px}h2{font-size:17px;margin:0 0 10px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:0 0 10px}
-.mut{color:var(--mut);font-size:13px;margin:2px 0 8px}
-input,select{width:100%;box-sizing:border-box;padding:10px;margin:0 0 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
-button{padding:9px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit}
-button.on,button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
-.row,.tabs{display:flex;gap:6px;margin:0 0 10px}.tabs{overflow-x:auto}.row button{flex:1}
-.top{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
-a{color:var(--ac)}#msg{min-height:20px;margin:0 0 6px;font-weight:600}
-.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--ac);color:#fff;margin:0 6px 6px 0}
-.hint{background:var(--card);border:1px solid var(--ac);border-radius:12px;padding:10px;margin:0 0 10px}
-.card button{margin:0 0 8px}
-</style></head><body><main>
-<div id="msg"></div><div id="app"></div></main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+:root{--g:#0f7a4a;--bg:#f5f7fa;--card:#fff;--tx:#1b2430;--mu:#6b7686;--bd:#e0e5ec;--rd:#c0392b;--am:#b7791f}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:16px}
+.wrap{max-width:720px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:0}
+h2{font-size:18px;margin:12px 0 6px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.err{color:var(--rd);margin:8px 0;font-size:15px}
+.ok{color:var(--g);margin:8px 0;font-size:15px}
+input,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:16px;margin:6px 0;font-family:inherit}
+button{font-size:16px;border-radius:10px;border:1px solid var(--bd);background:#fff;padding:10px 14px;cursor:pointer;color:var(--tx)}
+button.p{background:var(--g);color:#fff;border-color:var(--g)}
+button.d{background:var(--rd);color:#fff;border-color:var(--rd)}
+.tabs{display:flex;gap:8px;margin:10px 0}
+.tabs button{flex:1}
+.tabs button.on{background:var(--g);color:#fff;border-color:var(--g)}
+.subs{display:flex;gap:6px;margin:8px 0 12px}
+.subs button{flex:1;padding:8px 4px;font-size:14px}
+.subs button.on{background:#e6f4ec;border-color:var(--g);color:var(--g);font-weight:600}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:10px}
+.card.click{cursor:pointer}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.mu{color:var(--mu);font-size:14px}
+.tag{display:inline-block;font-size:12px;padding:3px 8px;border-radius:20px;background:#eef1f5;color:var(--mu);margin-right:4px}
+.tag.pending{background:#fdf3dc;color:var(--am)}
+.tag.approved{background:#e6f4ec;color:var(--g)}
+.tag.rejected{background:#fbe6e3;color:var(--rd)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 8px;font-size:15px;margin:8px 0}
+.kv span:nth-child(odd){color:var(--mu)}
+.doc{border:1px solid var(--bd);border-radius:12px;padding:10px;margin:8px 0;background:#fff}
+.doc img{max-width:100%;border-radius:8px;margin-top:8px;display:block}
+.acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
 <script>
-const sb=supabase.createClient('https://wpqmqduwbqlrmhhtqsnw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc');
-const $=id=>document.getElementById(id),app=$('app');
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let user=null,role=null,mode='driver',tab='';
-const note=(t,bad)=>{$('msg').textContent=t;$('msg').style.color=bad?'var(--er)':'var(--ac)'};
+/* ====== CONFIG ====== */
+const SUPABASE_URL = 'https://wpqmqduwbqlrmhhtqsnw.supabase.co';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';   // copy it from your old admin index.html
+const DOC_BUCKET = 'documents';                          // name of your Supabase storage bucket
+const ADMIN_EMAIL = 'sekhobokatleho@gmail.com';
+/* ==================== */
 
-function authView(signup){
- app.innerHTML=`<h1>DriverMatch</h1>
- <div class="row"><button class="${mode=='driver'?'on':''}" onclick="mode='driver';authView(${signup})">I’m a driver</button><button class="${mode=='owner'?'on':''}" onclick="mode='owner';authView(${signup})">I’m an owner</button></div>
- <div class="card"><h2>${signup?'Create '+mode+' account':'Log in as '+mode}</h2>
- ${signup?'<input id="fn" placeholder="Full name"><input id="ph" placeholder="Phone" inputmode="tel">':''}
- ${signup&&mode=='driver'?'<select id="lt"><option>Code 8</option><option>Code 10</option><option>Code 14</option><option>Bike (A1/A)</option></select>':''}
- <input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password (min 6)">${signup?`<label class="mut" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px"><input id="ag" type="checkbox" style="width:auto;margin:3px 0 0"> <span>I am 18 or older and agree to the <a href="#" onclick="legal('terms',1,1);return false">Terms</a> and <a href="#" onclick="legal('privacy',1,1);return false">Privacy Policy</a>.</span></label>`:''}
- <button class="pri" onclick="${signup?'signUp()':'logIn()'}">${signup?'Sign up':'Log in'}</button>
- <p><a href="#" onclick="authView(${!signup});return false">${signup?'Have an account? Log in':'New here? Sign up'}</a></p><p class="mut" style="text-align:center"><a href="#" onclick="legal('terms',1,${!!signup});return false">Terms</a> · <a href="#" onclick="legal('privacy',1,${!!signup});return false">Privacy</a></p></div>`;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = document.getElementById('app');
+const S = { who:'drivers', sec:'pending', openId:null, data:null, msg:'', msgType:'err' };
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => { s = (s || 'pending').toLowerCase(); if (['approved','verified'].includes(s)) return 'approved'; if (s === 'rejected') return 'rejected'; return 'pending'; };
+const fmtDate = d => d ? new Date(d).toLocaleDateString('en-ZA') : '';
+
+function flash(m, t){ S.msg = m; S.msgType = t || 'err'; }
+
+/* ---------- login ---------- */
+function renderLogin(err){
+  app.innerHTML = `
+    <div class="top"><h1>DriverMatch Admin</h1></div>
+    <div class="card">
+      <input id="em" type="email" placeholder="Admin email" autocomplete="username" value="${esc(ADMIN_EMAIL)}">
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+      <div class="err">${esc(err || '')}</div>
+      <button class="p" id="go">Log in</button>
+    </div>`;
+  document.getElementById('go').onclick = async () => {
+    const email = document.getElementById('em').value.trim();
+    const password = document.getElementById('pw').value;
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return renderLogin(error.message);
+    start();
+  };
 }
-async function ensure(u){const m=u.user_metadata||{};
- let{data:p}=await sb.from('profiles').select('role').eq('id',u.id).maybeSingle();
- if(!p&&m.role){await sb.from('profiles').insert({id:u.id,role:m.role,email:u.email,full_name:m.full_name,phone:m.phone});
-  if(m.role=='driver')await sb.from('driver_profiles').insert({user_id:u.id,licence_type:m.licence_type});p={role:m.role}}
- return p&&p.role}
-async function signUp(){if(!$('ag').checked)return note('Please accept the Terms and Privacy Policy to sign up.',1);const m={role:mode,full_name:$('fn').value,phone:$('ph').value};
- if(mode=='driver')m.licence_type=$('lt').value;
- const{data,error}=await sb.auth.signUp({email:$('em').value,password:$('pw').value,options:{data:m}});
- if(error)return note(error.message,1);
- if(data.session)return start(data.user);note('Check your email to confirm, then log in.')}
-async function logIn(){const{data,error}=await sb.auth.signInWithPassword({email:$('em').value,password:$('pw').value});
- if(error)return note(error.message,1);start(data.user)}
-async function start(u){user=u;role=await ensure(u);
- if(!role||role!=mode){await sb.auth.signOut();user=null;return note(role?`This is a ${role} account. Use the ${role} login.`:'Could not load your profile.',1)}
- note('');tab=role=='driver'?'vehicle_cards':'driver_cards';listen();home()}
-async function out(){if(chan)sb.removeChannel(chan);unread=0;try{const reg=await navigator.serviceWorker.getRegistration(),sub=reg&&await reg.pushManager.getSubscription();if(sub){await sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);await sub.unsubscribe()}}catch(e){}await sb.auth.signOut();user=null;note('');authView(false)}
 
-let unread=0,chan=null,cchan=null;
-const TABS=()=>[...(role=='driver'?[['vehicle_cards','Vehicles'],['profile','My offer']]:[['driver_cards','Drivers'],['vehicles','My vehicles']]),['requests','Requests'],['matches','Matches'],['documents','Docs'],['insurance','Insurance'],['notifications','Alerts']];
-const drawTabs=()=>{$('tabs').innerHTML=TABS().map(([k,l])=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';home()">${l}${k=='notifications'&&unread?` (${unread})`:''}</button>`).join('')};
-async function unreadCount(){const{count}=await sb.from('notifications').select('id',{count:'exact',head:true}).eq('user_id',user.id).eq('is_read',false);unread=count||0;drawTabs()}
-function listen(){if(chan)sb.removeChannel(chan);chan=sb.channel('n'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+user.id},p=>{unread++;drawTabs();note('🔔 '+p.new.title)}).subscribe()}
-async function home(){if(cchan){sb.removeChannel(cchan);cchan=null}
- app.innerHTML=`<div class="top"><b>DriverMatch · ${role}</b><button onclick="out()">Log out</button></div><div class="tabs" id="tabs"></div><div id="body">Loading…</div><p class="mut" style="text-align:center;margin-top:18px"><a href="#" onclick="legal('terms');return false">Terms</a> · <a href="#" onclick="legal('privacy');return false">Privacy</a></p>`;
- drawTabs();unreadCount();const e=await V[tab]();if(e)note(e.message,1)}
-const empty=t=>`<p class="mut">${t}</p>`;
-const V={
- async requests(){const{data,error}=await sb.from('requests').select('*').order('created_at',{ascending:false});if(error)return error;
-  $('body').innerHTML=data.length?data.map(r=>`<div class="card"><b>Request ${esc(r.id.slice(0,8))}</b><div class="mut">${esc(r.status)} · started by ${esc(r.initiated_by)}</div>${r.status=='pending'&&r.initiated_by!=role?`<button class="pri" onclick="respond('${r.id}','accepted')">Accept</button> <button onclick="respond('${r.id}','declined')">Decline</button>`:''}</div>`).join(''):empty('No requests yet.')},
- async documents(){const[a,b]=await Promise.all([sb.from('documents').select('*').eq('user_id',user.id).order('created_at',{ascending:false}),role=='owner'?sb.from('vehicles').select('id,make,model').eq('owner_id',user.id):{data:[]}]);if(a.error)return a.error;
-  const T={driver:['id','licence','pdp','police_clearance','selfie_id'],owner:['id','proof_of_ownership','vehicle_photo']}[role];
-  $('body').innerHTML=`<div class="card"><h2>Upload a document</h2><select id="dt">${T.map(t=>`<option>${t}</option>`).join('')}</select>${role=='owner'?`<select id="dv"><option value="">No vehicle</option>${(b.data||[]).map(v=>`<option value="${v.id}">${esc(v.make)} ${esc(v.model)}</option>`).join('')}</select>`:''}<input id="fl" type="file" accept="image/*,application/pdf"><button class="pri" onclick="upload()">Upload</button></div>`
-  +a.data.map(d=>`<div class="card"><b>${esc(d.doc_type)}</b><div class="mut">${esc(d.status)}${d.admin_note?' · '+esc(d.admin_note):''}</div></div>`).join('')},
- async notifications(){const{data,error}=await sb.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false});if(error)return error;
-  $('body').innerHTML=data.length?data.map(n=>`<div class="card"><b>${esc(n.title)}</b><div class="mut">${esc(n.body)}</div></div>`).join(''):empty('No alerts yet.')}
-};
-async function respond(id,s){const{error}=await sb.from('requests').update({status:s,responded_at:new Date().toISOString()}).eq('id',id);error?note(error.message,1):home()}
-async function upload(){const f=$('fl').files[0];if(!f)return note('Choose a file first.',1);
- const path=`${user.id}/${Date.now()}_${f.name.replace(/[^\w.-]/g,'_')}`;
- const u=await sb.storage.from('documents').upload(path,f);if(u.error)return note(u.error.message,1);
- const{error}=await sb.from('documents').insert({user_id:user.id,vehicle_id:($('dv')||{}).value||null,doc_type:$('dt').value,file_path:path});
- error?note(error.message,1):(note('Uploaded. Waiting for admin approval.'),home())}
+/* ---------- data ---------- */
+async function loadAll(){
+  const [dp, pr, vh, dc] = await Promise.all([
+    sb.from('driver_profiles').select('*'),
+    sb.from('profiles').select('id,full_name,phone,email,role'),
+    sb.from('vehicles').select('*'),
+    sb.from('documents').select('*').order('created_at', { ascending:false })
+  ]);
+  const bad = [dp, pr, vh, dc].find(r => r.error);
+  if (bad) throw new Error(bad.error.message);
+  const profiles = {}; pr.data.forEach(p => profiles[p.id] = p);
+  S.data = { drivers: dp.data, vehicles: vh.data, docs: dc.data, profiles };
+}
 
-const CITIES=['Bloemfontein','Johannesburg','Pretoria','Cape Town','Durban','Gqeberha','East London','Polokwane','Mbombela','Kimberley','Welkom','Harrismith','Soweto','Pietermaritzburg','Rustenburg'];
-const dl=`<datalist id="cities">${CITIES.map(c=>`<option value="${c}">`).join('')}</datalist>`;
-const nz=s=>String(s||'').trim().toLowerCase(),rand=n=>'R'+Math.round(+n||0);
-const where=x=>[x.suburb,x.city].filter(Boolean).map(esc).join(', ')||'Area not set';
-let selVeh=null;
+/* ---------- list view ---------- */
+function items(){
+  const D = S.data;
+  if (S.who === 'drivers') {
+    return D.drivers.map(d => ({
+      id: d.user_id, status: norm(d.verification_status), reason: d.rejection_reason,
+      title: D.profiles[d.user_id]?.full_name || d.driver_code || 'Driver',
+      code: d.driver_code,
+      place: [d.suburb, d.city].filter(Boolean).join(', '),
+      raw: d
+    }));
+  }
+  return D.vehicles.map(v => ({
+    id: v.id, status: norm(v.status), reason: v.rejection_reason,
+    title: `${v.vehicle_code || 'Vehicle'} · ${[v.make, v.model, v.year].filter(Boolean).join(' ')}`,
+    owner: D.profiles[v.owner_id]?.full_name || 'Owner',
+    code: v.vehicle_code,
+    place: [v.suburb, v.city].filter(Boolean).join(', '),
+    raw: v
+  }));
+}
 
-/* ---- Location: asked only when the user taps the button; saved rounded (~1 km) ---- */
-let loc=null,radius=25;
-const r2=n=>Math.round(n*100)/100;
-const getLoc=()=>new Promise((ok,no)=>{
- if(!navigator.geolocation)return no(new Error('Location is not supported on this device. Type your area instead.'));
- navigator.geolocation.getCurrentPosition(p=>ok({lat:r2(p.coords.latitude),lng:r2(p.coords.longitude)}),
-  e=>no(new Error(e.code==1?'Location permission was denied. Allow it in your browser settings, or type your area instead.':'Could not get your location. Try again, or type your area.')),
-  {timeout:15000,maximumAge:300000})});
-async function areaOf(l){try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${l.lat}&lon=${l.lng}`);const a=(await r.json()).address||{};
- return{city:a.city||a.town||a.village||a.municipality||a.county||'',suburb:a.suburb||a.neighbourhood||a.city_district||a.quarter||''}}catch(e){return{city:'',suburb:''}}}
-async function useLoc(){note('Getting your location…');
- try{const l=await getLoc(),a=await areaOf(l);loc={...l,...a};
-  if($('ci'))$('ci').value=a.city;if($('su'))$('su').value=a.suburb;
-  note(a.city?'Location found: '+[a.suburb,a.city].filter(Boolean).join(', ')+'. Check it, then save.':'Location found. Type your town/city, then save.')}
- catch(e){note(e.message,1)}}
-const locSave=()=>loc?{lat:loc.lat,lng:loc.lng,location_consent:true,location_updated_at:new Date().toISOString()}:{};
-const locBtn=`<button onclick="useLoc()">📍 Use my location</button><div class="mut">Your phone asks for permission first. Others only see your area and a rough distance, never exact coordinates.</div>`;
-async function dists(fn,lat,lng){if(lat==null||lng==null)return{};const{data}=await sb.rpc(fn,{my_lat:lat,my_lng:lng});const m={};(data||[]).forEach(r=>m[r.id]=r.km);return m}
-const near=(d,x,c)=>d!=null?(!radius||d<=radius):(!!c&&nz(x.city)==c);
-const km=d=>d==null?'':` · ${d<1?'under 1':Math.round(d)} km away`;
-const radSel=()=>`<select onchange="radius=+this.value;home()">${[5,10,25,50,0].map(r=>`<option value="${r}" ${r==radius?'selected':''}>${r?'Within '+r+' km':'Any distance'}</option>`).join('')}</select>`;
-const byNear=(a,b)=>(b.area-a.area)||(b.fit-a.fit)||((a.d??1e9)-(b.d??1e9));
+function renderList(){
+  const all = items();
+  const count = k => all.filter(i => i.status === k).length;
+  const list = all.filter(i => i.status === S.sec);
+  app.innerHTML = `
+    <div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
+    <div class="tabs">
+      <button data-w="drivers" class="${S.who==='drivers'?'on':''}">Drivers</button>
+      <button data-w="owners" class="${S.who==='owners'?'on':''}">Owners</button>
+    </div>
+    <div class="subs">
+      ${['pending','approved','rejected'].map(k => `<button data-s="${k}" class="${S.sec===k?'on':''}">${k[0].toUpperCase()+k.slice(1)} (${count(k)})</button>`).join('')}
+    </div>
+    <div class="${S.msgType}">${esc(S.msg)}</div>
+    ${list.length ? list.map(i => `
+      <div class="card click" data-id="${esc(i.id)}">
+        <div class="row"><b>${esc(i.title)}</b><span class="tag ${i.status}">${i.status}</span></div>
+        ${S.who==='owners' ? `<div class="mu">Owner: ${esc(i.owner)}</div>` : ''}
+        <div class="mu">${esc(i.place || 'No location')}</div>
+      </div>`).join('') : `<div class="mu">Nothing in ${S.sec}.</div>`}
+  `;
+  document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
+  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { S.who = b.dataset.w; S.msg=''; renderList(); });
+  app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { S.sec = b.dataset.s; S.msg=''; renderList(); });
+  app.querySelectorAll('[data-id]').forEach(c => c.onclick = () => { S.openId = c.dataset.id; S.msg=''; renderDetail(); });
+}
 
-Object.assign(V,{
- async vehicle_cards(){const m=await sb.from('driver_profiles').select('weekly_offer,city,lat,lng').eq('user_id',user.id).maybeSingle(),me=m.data||{};
-  const[l,dm]=await Promise.all([sb.from('vehicle_listings').select('*'),dists('vehicle_distances',me.lat,me.lng)]);if(l.error)return l.error;
-  const offer=+me.weekly_offer||0,c=nz(me.city),has=me.lat!=null||!!c;
-  const list=l.data.map(v=>{const d=dm[v.id];return{...v,d,area:near(d,v,c),fit:offer>0&&offer>=+v.weekly_amount}}).filter(v=>!radius||me.lat==null||v.area).sort(byNear);
-  const n=list.filter(v=>v.area&&v.fit).length;
-  $('body').innerHTML=(has?`${radSel()}<div class="hint"><b>${n}</b> vehicle${n==1?'':'s'} ${radius&&me.lat!=null?'within '+radius+' km':'near you'}${offer?' at or below your offer of '+rand(offer)+'/week':''}.</div>`:`<div class="hint">Turn on your location in <a href="#" onclick="tab='profile';home();return false">My offer</a> to see vehicles near you.</div>`)
-  +(list.length?list.map(v=>`<div class="card">${v.area?'<span class="tag">Near you</span>':''}${v.fit?'<span class="tag">Fits your offer</span>':''}<div><b>${esc(v.make)} ${esc(v.model)}</b> ${esc(v.year)}</div><div class="mut">${esc(v.vehicle_type)} · ${esc(v.kms)} km · ${where(v)}${km(v.d)}</div><div>Owner asks <b>${rand(v.weekly_amount)}</b>/week</div><button class="pri" onclick="ask('${v.id}')">Request match</button></div>`).join(''):empty('No vehicles found. Try a wider distance.'))},
- async driver_cards(){const b=await sb.from('vehicles').select('id,make,model,weekly_amount,city,suburb,lat,lng').eq('owner_id',user.id),vs=b.data||[];
-  if(!vs.length){$('body').innerHTML=empty('Add a vehicle first in the My vehicles tab. Drivers are matched to its area and weekly amount.');return}
-  if(!vs.find(v=>v.id==selVeh))selVeh=vs[0].id;const v=vs.find(x=>x.id==selVeh),c=nz(v.city);
-  const[a,dm,fn]=await Promise.all([sb.from('driver_listings').select('*'),dists('driver_distances',v.lat,v.lng),loadNames()]);if(a.error)return a.error;
-  const list=a.data.map(d=>{const k=dm[d.id];return{...d,d:k,area:near(k,d,c),fit:+d.weekly_offer>=+v.weekly_amount}}).filter(d=>!radius||v.lat==null||d.area).sort(byNear);
-  const n=list.filter(d=>d.area&&d.fit).length;
-  $('body').innerHTML=`<select onchange="selVeh=this.value;home()">${vs.map(x=>`<option value="${x.id}" ${x.id==selVeh?'selected':''}>${esc(x.make)} ${esc(x.model)} · ${rand(x.weekly_amount)}/week</option>`).join('')}</select>${v.lat!=null||c?radSel():''}<div class="hint"><b>${n}</b> driver${n==1?'':'s'} ${radius&&v.lat!=null?'within '+radius+' km':'in '+esc(v.city||'your area')} willing to pay ${rand(v.weekly_amount)}/week or more.${v.lat==null?' Tap “Update location” on the vehicle in My vehicles to match by distance.':''}</div>`
-  +(list.length?list.map(d=>`<div class="card">${d.area?'<span class="tag">Near you</span>':''}${d.fit?'<span class="tag">Meets your price</span>':''}<div><b>${esc(fn[d.id]||d.driver_code)}</b> · ${esc(d.licence_type)}</div><div class="mut">${where(d)}${km(d.d)} · Documents verified</div><div>Offers <b>${d.weekly_offer?rand(d.weekly_offer):'not set'}</b>/week</div><button class="pri" onclick="ask('${d.id}')">Request match</button></div>`).join(''):empty('No verified drivers found. Try a wider distance.'))},
- async profile(){const{data,error}=await sb.from('driver_profiles').select('*').eq('user_id',user.id).maybeSingle();if(error)return error;const p=data||{};
-  $('body').innerHTML=`${dl}<div class="card"><h2>My weekly offer and area</h2><div class="mut">Owners near you are told when your offer fits their price, before you pay. Status: ${esc(p.verification_status||'pending')}</div><input id="wo" type="number" placeholder="Weekly amount I’m willing to pay (R)" value="${esc(p.weekly_offer)}">${locBtn}${p.lat!=null?'<div class="mut">Location saved ✓</div>':''}<input id="ci" list="cities" placeholder="Town / city" value="${esc(p.city)}"><input id="su" placeholder="Suburb / township (optional)" value="${esc(p.suburb)}"><button class="pri" onclick="saveProfile()">Save</button></div>`},
- async vehicles(){const{data,error}=await sb.from('vehicles').select('*').eq('owner_id',user.id).order('created_at',{ascending:false});if(error)return error;
-  $('body').innerHTML=`${dl}<div class="card"><h2>Add a vehicle</h2><select id="vt"><option>car</option><option>bike</option></select><input id="mk" placeholder="Make"><input id="md" placeholder="Model"><input id="yr" type="number" placeholder="Year"><input id="km" type="number" placeholder="Kms"><input id="wk" type="number" placeholder="Weekly amount I want to collect (R)">${locBtn}<input id="ci" list="cities" placeholder="Town / city where it is"><input id="su" placeholder="Suburb / township (optional)"><button class="pri" onclick="addVehicle()">Add vehicle</button></div>`
-  +data.map(v=>`<div class="card"><b>${esc(v.make)} ${esc(v.model)}</b> ${esc(v.year)}<div class="mut">${esc(v.vehicle_code)} · ${esc(v.kms)} km · ${where(v)}${v.lat!=null?' · 📍':''} · ${esc(v.status)}</div><div>Collecting <b>${rand(v.weekly_amount)}</b>/week</div><button onclick="editV('${v.id}',${+v.weekly_amount||0})">Change price</button> <button onclick="editArea('${v.id}')">Update location</button></div>`).join('')}
-});
-async function saveProfile(){const{error}=await sb.from('driver_profiles').update({weekly_offer:+$('wo').value||null,city:$('ci').value.trim(),suburb:$('su').value.trim(),...locSave()}).eq('user_id',user.id);
- error?note(error.message,1):(loc=null,note('Saved.'),home())}
-async function addVehicle(){if(!$('ci').value.trim()||!+$('wk').value)return note('Add the weekly amount and the town/city.',1);
- const{error}=await sb.from('vehicles').insert({owner_id:user.id,vehicle_type:$('vt').value,make:$('mk').value,model:$('md').value,year:+$('yr').value||null,kms:+$('km').value||null,weekly_amount:+$('wk').value,city:$('ci').value.trim(),suburb:$('su').value.trim(),...locSave()});
- error?note(error.message,1):(loc=null,note('Vehicle added. It will show once approved.'),home())}
-async function editV(id,cur){const p=prompt('New weekly amount (R)',cur);if(p===null||!+p)return;const{error}=await sb.from('vehicles').update({weekly_amount:+p}).eq('id',id);error?note(error.message,1):home()}
-async function editArea(id){note('Getting your location…');let u;
- try{const l=await getLoc(),a=await areaOf(l);u={lat:l.lat,lng:l.lng,city:a.city,suburb:a.suburb,location_consent:true,location_updated_at:new Date().toISOString()}}
- catch(e){note(e.message,1);const c=prompt('Type the town / city instead');if(!c)return;u={city:c.trim(),suburb:(prompt('Suburb / township (optional)')||'').trim()}}
- Object.keys(u).forEach(k=>u[k]===''&&delete u[k]);
- const{error}=await sb.from('vehicles').update(u).eq('id',id);error?note(error.message,1):(note('Location updated.'),home())}
-async function ask(id){const r=role=='driver'?{driver_id:user.id,vehicle_id:id}:{driver_id:id,vehicle_id:selVeh};
- if(!r.vehicle_id)return note('Add a vehicle first.',1);
- const{error}=await sb.from('requests').insert({...r,initiated_by:role});note(error?error.message:'Request sent.',!!error)}
-/* ---- Alerts, matches, chat, ratings, insurance ---- */
-const bub=m=>`<div style="text-align:${m.sender_id==user.id?'right':'left'};margin:0 0 6px"><span class="tag" style="background:${m.sender_id==user.id?'var(--ac)':'var(--mut)'};white-space:pre-wrap;font-size:14px">${esc(m.body)}</span></div>`;
-let chatReq=null,offers=[],alerts=[],showPast=false,showPastReq=false,showOld=false;
-async function loadNames(){if(role!='owner')return{};try{const{data}=await sb.rpc('driver_first_names');const m={};(data||[]).forEach(x=>m[x.id]=x.first_name);return m}catch(e){return{}}}
-Object.assign(V,{
- async requests(){const{data,error}=await sb.from('requests').select('*').in('status',['pending','declined']).order('created_at',{ascending:false});if(error)return error;const fn=await loadNames();
-  const card=r=>`<div class="card"><b>Request · ${esc(fn[r.driver_id]||r.id.slice(0,8))}</b><div class="mut">${esc(r.status)} · started by ${esc(r.initiated_by)}</div>${r.status=='pending'&&r.initiated_by!=role?`<button class="pri" onclick="respond('${r.id}','accepted')">Accept</button> <button onclick="respond('${r.id}','declined')">Decline</button>`:''}</div>`,
-   open=data.filter(r=>r.status=='pending'),past=data.filter(r=>r.status!='pending');
-  $('body').innerHTML=(open.length?open.map(card).join(''):empty('No open requests. Accepted ones move to Matches.'))+(past.length?`<button onclick="showPastReq=!showPastReq;home()">${showPastReq?'Hide':'Show'} past requests (${past.length})</button>`:'')+(showPastReq?past.map(card).join(''):'')},
- async matches(){const[a,rt]=await Promise.all([sb.from('requests').select('*').eq('status','accepted').order('created_at',{ascending:false}),sb.from('ratings').select('request_id').eq('rater_id',user.id)]);if(a.error)return a.error;
-  const done=new Set((rt.data||[]).map(x=>x.request_id)),act=a.data,fn=await loadNames(),nm=r=>esc(fn[r.driver_id]||r.id.slice(0,8));
-  $('body').innerHTML=(act.length?act.map(r=>`<div class="card"><span class="tag">Active match</span><div><b>${nm(r)}</b></div><div class="mut">Agree your terms in chat. Phone numbers stay hidden.</div><button class="pri" onclick="openChat('${r.id}')">💬 Chat</button> ${done.has(r.id)?'':`<button onclick="rate('${r.id}')">⭐ Rate</button> `}<button onclick="cancelMatch('${r.id}')">Cancel match</button></div>`).join(''):empty('No active matches yet. Accepted requests appear here.'))
-},
- async notifications(){const{data,error}=await sb.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(50);if(error)return error;
-  alerts=data;const ps=await pushState();$('body').innerHTML=pushBanner(ps)+(unread?'<button onclick="readAll()">Mark all as read</button>':'')+(()=>{const week=Date.now()-7*864e5,card=n=>`<div class="card" style="cursor:pointer;${n.is_read?'':'border-color:var(--ac)'}" onclick="openAlert('${n.id}')"><b>${esc(n.title)}</b>${n.link_type?' <span class="mut">›</span>':''}<div class="mut">${esc(n.body)}</div><div class="mut">${new Date(n.created_at).toLocaleString()}</div></div>`,
-  fresh=data.filter(n=>!n.is_read||new Date(n.created_at)>week),old=data.filter(n=>!fresh.includes(n));
-  return(fresh.length?fresh.map(card).join(''):empty('No new alerts.'))+(old.length?`<button onclick="showOld=!showOld;home()">${showOld?'Hide':'Show'} older alerts (${old.length})</button>`:'')+(showOld?old.map(card).join(''):'')})()},
- async insurance(){const{data,error}=await sb.from('insurance_offers').select('*').eq('active',true).order('monthly_from');if(error)return error;offers=data;
-  $('body').innerHTML='<div class="hint">Compare cover from partner insurers. These are adverts, so check the terms before you buy.</div>'+(data.length?data.map(o=>`<div class="card"><span class="tag">${esc(o.cover_type)}</span><div><b>${esc(o.company)}</b> · ${esc(o.title)}</div><div class="mut">${esc(o.details)}</div><div>From <b>${rand(o.monthly_from)}</b>/month</div><button class="pri" onclick="quote('${o.id}')">Get a quote</button></div>`).join(''):empty('No insurance offers yet.'))}
-});
-async function openAlert(id){const n=alerts.find(a=>a.id==id);if(!n)return;
- if(!n.is_read){n.is_read=true;if(unread>0)unread--;sb.from('notifications').update({is_read:true}).eq('id',id).then(()=>{})}
- const t=n.link_type;if(!t){drawTabs();return V.notifications()}
- if(t=='chat'&&n.link_id){tab='matches';await home();return openChat(n.link_id)}
- if(TABS().some(x=>x[0]==t)){tab=t;return home()}
- drawTabs();V.notifications()}
-async function readAll(){await sb.from('notifications').update({is_read:true}).eq('user_id',user.id).eq('is_read',false);unread=0;home()}
-async function quote(id){const{error}=await sb.from('insurance_leads').insert({offer_id:id,user_id:user.id});if(error)return note(error.message,1);
- note('Quote request sent to the insurer.');const l=(offers.find(o=>o.id==id)||{}).link;if(l&&/^(https?:|mailto:|tel:)/i.test(l))window.open(l,'_blank')}
-function cancelMatch(id){if(cchan){sb.removeChannel(cchan);cchan=null}
- $('body').innerHTML=`<button onclick="home()">← Back</button><div class="card" style="margin-top:10px"><h2>Cancel this match?</h2><div class="mut">The chat is deleted for both of you and the match disappears. You will both need to pay again to send new requests.</div><select id="cr"><option value="">Why are you cancelling?</option><option>No response or no-show</option><option>Price or terms changed</option><option>Vehicle or driver not as described</option><option>Found another match</option><option>Changed my mind</option><option>Other</option></select><button class="pri" onclick="confirmCancel('${id}')">Cancel match</button></div>`}
-async function confirmCancel(id){const r=$('cr').value;if(!r)return note('Choose a reason first.',1);
- const{error}=await sb.rpc('cancel_match',{p_request_id:id,p_reason:r});if(error)return note(error.message,1);
- chatReq=null;tab='matches';note('Match cancelled and removed.');home()}
-async function rate(id){const s=Math.round(+prompt('Rate 1 to 5 stars'));if(!(s>=1&&s<=5))return;
- const{error}=await sb.rpc('submit_rating',{rid:id,n_stars:s,cmt:prompt('Comment (optional)')||''});error?note(error.message,1):(note('Thanks for rating.'),home())}
-async function refreshChat(){const{data}=await sb.from('chat_messages').select('*').eq('request_id',chatReq).order('created_at');
- if($('chat')){$('chat').innerHTML=(data||[]).map(bub).join('')||'<p class="mut">No messages yet. Say hi 👋</p>';$('chat').scrollTop=1e9}}
-async function openChat(id){chatReq=id;
- $('body').innerHTML='<button onclick="tab=\'matches\';home()">← Back</button> <button onclick="cancelMatch(chatReq)">Cancel match</button><div id="chat" class="card" style="max-height:55vh;overflow:auto;margin-top:10px"></div><input id="cm" placeholder="Type a message"><button class="pri" onclick="sendChat()">Send</button>';
- await refreshChat();
- cchan=sb.channel('c'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages',filter:'request_id=eq.'+id},refreshChat).subscribe()}
-async function sendChat(){const t=$('cm').value.trim();if(!t)return;
- if(/\d[\s\-().]*\d[\s\-().]*\d[\s\-().]*\d[\s\-().]*\d[\s\-().]*\d[\s\-().]*\d[\s\-().]*\d[\s\-().]*\d/.test(t))return note('Phone numbers can’t be shared in chat.',1);
- const{error}=await sb.from('chat_messages').insert({request_id:chatReq,sender_id:user.id,body:t});if(error)return note(error.message,1);$('cm').value='';note('');refreshChat()}
-/* ---- Terms and Privacy ---- */
-const CONTACT="[add your support email here]";
-const LEGAL={
-terms:{t:"Terms of Use",s:[
-["1. What DriverMatch is","DriverMatch helps vehicle owners and drivers find each other. We are not an employer, agent, insurer or transport operator, and we are not part of any agreement you make with another user. Any deal about price, hours or use of a vehicle is between the owner and the driver."],
-["2. Who can use it","You must be 18 or older, give true information and keep your login private. Drivers must hold a valid licence for the vehicle type, and a PDP where the law or the platform they work for requires one. Owners must own the vehicle or be allowed to rent it out."],
-["3. Verification","We review documents before accounts and vehicles are approved. Approval means the documents were checked. It is not a guarantee about any person or vehicle, so use your own judgement before agreeing to a deal."],
-["4. Fees","Some actions need an access fee, shown in the app before you pay. After a match is made or cancelled, access is used up and you pay again to send new requests. Fees are not refundable once access has been used, except where the law says otherwise."],
-["5. Chat and contact details","Chat is for agreeing your terms. Phone numbers are hidden by design and you must not try to get around this. Be respectful. We may remove users who harass, threaten or mislead others."],
-["6. Cancelling a match","Either person can cancel a match at any time and will be asked for a reason. Cancelling deletes the chat for both people and removes the match. Repeated or abusive cancellations can lead to suspension."],
-["7. Your responsibility","Owners and drivers are responsible for the vehicle’s roadworthiness, licensing and insurance, for traffic fines, accidents and damage, and for following the rules of any ride or delivery platform they use. DriverMatch does not guarantee income, matches or the behaviour of other users."],
-["8. Limits on our liability","To the extent the law allows, DriverMatch is not liable for losses from deals, accidents, fines or disputes between users. Nothing here limits your rights under South African law, including the Consumer Protection Act."],
-["9. Suspension","We may suspend or remove accounts, listings or documents that break these terms or the law."],
-["10. Changes and law","We may update these terms and will tell you in the app. These terms follow the laws of South Africa."],
-["11. Contact","Questions: "+CONTACT]]},
-privacy:{t:"Privacy Policy",s:[
-["Who we are","DriverMatch is the responsible party for your personal information under POPIA (the Protection of Personal Information Act). Contact: "+CONTACT],
-["What we collect","Your name, phone number, email and account type. For drivers: licence type, weekly offer and verification documents (ID, licence, PDP, police clearance, selfie). For owners: vehicle details, photos and proof of ownership. Also your approximate area, chat messages, ratings and alerts, and, if you switch on phone alerts, your device’s notification address."],
-["Why we use it","To verify users, match owners and drivers, send alerts, keep the platform safe, prevent fraud and meet legal duties."],
-["Your location","Location is optional and only taken when you tap “Use my location”. It is saved rounded to about 1 km. Other users see only your area and a rough distance, never exact coordinates."],
-["Who sees what","Owners see a driver’s first name, licence type, offer and rough distance. Drivers see vehicle details and an area. Phone numbers are never shown in matches or chat. Our admin team can see your documents to verify them."],
-["Sharing","We do not sell your information. We use service providers to host and run the app, and may share information with authorities when the law requires."],
-["Keeping and deleting","Chats are deleted when a match is cancelled. We keep documents and account details while your account is active, and as long as the law or fraud prevention needs. You can ask us to delete your information."],
-["Security","We use access controls on our database and file storage. No system is perfectly secure, so keep your password safe."],
-["Your rights","You can ask to see, correct or delete your information, or object to how we use it, by contacting us. You may also complain to the Information Regulator of South Africa."],
-["Age","DriverMatch is for people 18 and older."]]}};
-function legal(k,a,sg){const L=LEGAL[k];if(cchan){sb.removeChannel(cchan);cchan=null}
- app.innerHTML=`<button onclick="${a?'authView('+!!sg+')':'home()'}">← Back</button><h1>${L.t}</h1>`+L.s.map(([h,t])=>`<h2>${h}</h2><p>${t}</p>`).join('')+`<p class="mut">Last updated: 29 October 2026</p>`}
-/* ---- Phone push ---- */
-const VAPID='BEE7l9sIC_qp3tfF7sH6JqQXnW2thmdV4ujse0S0EqMrYeCwgPUeECBNwMGqqvtrEqiLLdwmS2gcOhzYZOpa50I';
-const u8=t=>{const r=atob((t+'='.repeat((4-t.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(r,c=>c.charCodeAt(0))};
-async function pushState(){if(!('serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window))return 'unsupported';if(Notification.permission=='denied')return 'denied';
- const reg=await navigator.serviceWorker.getRegistration();return reg&&await reg.pushManager.getSubscription()?'on':'off'}
-const pushBanner=s=>s=='off'?'<div class="hint">Get alerts on your phone even when the app is closed.<br><br><button class="pri" onclick="enablePush()">🔔 Turn on phone notifications</button></div>':s=='unsupported'?'<div class="hint">For phone notifications, add DriverMatch to your Home Screen first (iPhone: Safari → Share → Add to Home Screen), then open it from there.</div>':s=='denied'?'<div class="hint">Notifications are blocked. Allow them for this app in your phone settings.</div>':'';
-async function enablePush(){try{if(await Notification.requestPermission()!='granted')return note('Notifications were not allowed.',1);
- const reg=await navigator.serviceWorker.getRegistration();if(!reg)return note('Reload the app and try again.',1);
- const j=(await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(VAPID)})).toJSON();
- const{error}=await sb.from('push_subscriptions').upsert({user_id:user.id,endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth},{onConflict:'endpoint'});
- error?note(error.message,1):(note('Phone notifications are on.'),home())}catch(e){note(e.message,1)}}
-if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-(async()=>{const{data:{session}}=await sb.auth.getSession();
- if(session){const r=await ensure(session.user);if(r){mode=r;return start(session.user)}}authView(false)})();
-</script></body></html>
+/* ---------- detail view ---------- */
+async function renderDetail(){
+  const D = S.data;
+  const it = items().find(i => String(i.id) === String(S.openId));
+  if (!it) { S.openId = null; return renderList(); }
+
+  let person, docs, kv;
+  if (S.who === 'drivers') {
+    const p = D.profiles[it.raw.user_id] || {};
+    person = p;
+    docs = D.docs.filter(d => d.user_id === it.raw.user_id);
+    kv = [['Name', p.full_name], ['Phone', p.phone], ['Email', p.email], ['Driver code', it.raw.driver_code],
+          ['Licence', it.raw.licence_type], ['Location', it.place], ['Weekly offer', it.raw.weekly_offer ? 'R' + it.raw.weekly_offer : ''],
+          ['Joined', fmtDate(it.raw.created_at)]];
+  } else {
+    const v = it.raw, p = D.profiles[v.owner_id] || {};
+    person = p;
+    docs = D.docs.filter(d => d.vehicle_id === v.id || (d.user_id === v.owner_id && !d.vehicle_id));
+    kv = [['Owner', p.full_name], ['Phone', p.phone], ['Email', p.email], ['Vehicle', `${v.vehicle_code || ''} (${v.vehicle_type || ''})`],
+          ['Make / model', [v.make, v.model, v.year].filter(Boolean).join(' ')], ['Kms', v.kms], ['Location', it.place],
+          ['Weekly amount', v.weekly_amount ? 'R' + v.weekly_amount : '']];
+  }
+
+  app.innerHTML = `
+    <div class="top"><button id="back">← Back</button><span class="tag ${it.status}">${it.status}</span></div>
+    <h2>${esc(it.title)}</h2>
+    <div class="card"><div class="kv">${kv.map(([k,v]) => `<span>${esc(k)}</span><span>${esc(v || '—')}</span>`).join('')}</div>
+      ${it.reason ? `<div class="err">Reason: ${esc(it.reason)}</div>` : ''}</div>
+    <h2>Documents (${docs.length})</h2>
+    <div id="docs"><div class="mu">Loading documents…</div></div>
+    <div class="${S.msgType}" id="msg">${esc(S.msg)}</div>
+    <div class="card">
+      <textarea id="why" rows="2" placeholder="Reason (required for rejecting or revoking)"></textarea>
+      <div class="acts">
+        ${it.status !== 'approved' ? '<button class="p" id="ap">Approve</button>' : ''}
+        ${it.status === 'approved' ? '<button class="d" id="rv">Revoke</button>' : ''}
+        ${it.status === 'pending' ? '<button class="d" id="rj">Reject</button>' : ''}
+      </div>
+    </div>`;
+  document.getElementById('back').onclick = () => { S.openId = null; S.msg=''; renderList(); };
+
+  const setStatus = async (status, needReason) => {
+    const reason = document.getElementById('why').value.trim();
+    if (needReason && !reason) return showMsg('Please type a reason first.');
+    const patch = S.who === 'drivers'
+      ? { verification_status: status, rejection_reason: status === 'approved' ? null : reason }
+      : { status: status, rejection_reason: status === 'approved' ? null : reason };
+    const q = S.who === 'drivers'
+      ? sb.from('driver_profiles').update(patch).eq('user_id', it.raw.user_id)
+      : sb.from('vehicles').update(patch).eq('id', it.raw.id);
+    const { data, error } = await q.select();
+    if (error) return showMsg(error.message);
+    if (!data || !data.length) return showMsg('Update was blocked. The admin policy is missing (run the SQL).');
+    await loadAll();
+    S.sec = status; S.openId = null;
+    flash(`Moved to ${status}.`, 'ok');
+    renderList();
+  };
+  const showMsg = m => { const e = document.getElementById('msg'); e.className = 'err'; e.textContent = m; };
+
+  const ap = document.getElementById('ap'), rj = document.getElementById('rj'), rv = document.getElementById('rv');
+  if (ap) ap.onclick = () => setStatus('approved', false);
+  if (rj) rj.onclick = () => setStatus('rejected', true);
+  if (rv) rv.onclick = () => setStatus('rejected', true);
+
+  // documents
+  const box = document.getElementById('docs');
+  if (!docs.length) { box.innerHTML = '<div class="mu">No documents uploaded.</div>'; return; }
+  const parts = await Promise.all(docs.map(async d => {
+    const { data, error } = await sb.storage.from(DOC_BUCKET).createSignedUrl(d.file_path, 900);
+    const url = data?.signedUrl;
+    const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path || '');
+    return `<div class="doc">
+      <div class="row"><b>${esc((d.doc_type || 'document').replace(/_/g,' '))}</b><span class="mu">${fmtDate(d.created_at)}</span></div>
+      ${error ? `<div class="err">Cannot open file: ${esc(error.message)}</div>` :
+        (isImg ? `<a href="${url}" target="_blank"><img src="${url}" alt="document"></a>` : `<a href="${url}" target="_blank">Open file</a>`)}
+    </div>`;
+  }));
+  box.innerHTML = parts.join('');
+}
+
+/* ---------- start ---------- */
+async function start(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) return renderLogin();
+  app.innerHTML = '<div class="mu">Loading…</div>';
+  try {
+    await loadAll();
+    renderList();
+  } catch (e) {
+    app.innerHTML = `<div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
+      <div class="err">${esc(e.message)}</div><div class="mu">If this says permission denied or returns nothing, run the admin SQL.</div>`;
+    document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
+  }
+}
+start();
+</script>
+</body>
+</html>
