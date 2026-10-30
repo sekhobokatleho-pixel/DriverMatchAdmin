@@ -12,234 +12,66 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;bac
 .wrap{max-width:720px;margin:0 auto;padding:14px}
 h1{font-size:20px;margin:0}
 h2{font-size:18px;margin:12px 0 6px}
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px}
 .err{color:var(--rd);margin:8px 0;font-size:15px}
 .ok{color:var(--g);margin:8px 0;font-size:15px}
-input,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:16px;margin:6px 0;font-family:inherit}
-button{font-size:16px;border-radius:10px;border:1px solid var(--bd);background:#fff;padding:10px 14px;cursor:pointer;color:var(--tx)}
+.banner{background:#fdf3dc;border:1px solid #f0dca8;color:#7a5a12;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
+input,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:16px;margin:6px 0;font-family:inherit;background:#fff;color:var(--tx)}
+button{font-size:16px;border-radius:10px;border:1px solid var(--bd);background:#fff;padding:10px 14px;cursor:pointer;color:var(--tx);font-family:inherit}
+button.sm{padding:6px 10px;font-size:14px}
 button.p{background:var(--g);color:#fff;border-color:var(--g)}
 button.d{background:var(--rd);color:#fff;border-color:var(--rd)}
-.tabs{display:flex;gap:8px;margin:10px 0}
-.tabs button{flex:1}
-.tabs button.on{background:var(--g);color:#fff;border-color:var(--g)}
-.subs{display:flex;gap:6px;margin:8px 0 12px}
-.subs button{flex:1;padding:8px 4px;font-size:14px}
-.subs button.on{background:#e6f4ec;border-color:var(--g);color:var(--g);font-weight:600}
+
+/* top navigation (scrolls sideways on small screens) */
+.nav{display:flex;gap:6px;overflow-x:auto;margin:6px 0 12px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.nav button{flex:0 0 auto;padding:8px 12px;font-size:15px;white-space:nowrap}
+.nav button.on{background:var(--g);color:#fff;border-color:var(--g)}
+.badge{display:inline-block;min-width:18px;margin-left:6px;padding:1px 6px;border-radius:20px;background:var(--rd);color:#fff;font-size:12px;text-align:center}
+.nav button.on .badge{background:#fff;color:var(--g)}
+
+/* filter chips */
+.chips{display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap}
+.chips button{padding:7px 12px;font-size:14px}
+.chips button.on{background:#e6f4ec;border-color:var(--g);color:var(--g);font-weight:600}
+
+/* cards */
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:10px}
 .card.click{cursor:pointer}
 .row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .mu{color:var(--mu);font-size:14px}
+
+/* home stats */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.stat{margin:0;display:flex;flex-direction:column;gap:4px}
+.stat b{font-size:24px}
+
+/* status tags */
 .tag{display:inline-block;font-size:12px;padding:3px 8px;border-radius:20px;background:#eef1f5;color:var(--mu);margin-right:4px}
-.tag.pending{background:#fdf3dc;color:var(--am)}
-.tag.approved{background:#e6f4ec;color:var(--g)}
-.tag.rejected{background:#fbe6e3;color:var(--rd)}
+.tag.pending,.tag.open{background:#fdf3dc;color:var(--am)}
+.tag.approved,.tag.accepted,.tag.paid,.tag.resolved{background:#e6f4ec;color:var(--g)}
+.tag.rejected,.tag.declined,.tag.cancelled,.tag.blocked{background:#fbe6e3;color:var(--rd)}
+.tag.reviewed{background:#e3edfb;color:#2a5db0}
+
+/* details */
 .kv{display:grid;grid-template-columns:110px 1fr;gap:4px 8px;font-size:15px;margin:8px 0}
 .kv span:nth-child(odd){color:var(--mu)}
 .doc{border:1px solid var(--bd);border-radius:12px;padding:10px;margin:8px 0;background:#fff}
 .doc img{max-width:100%;border-radius:8px;margin-top:8px;display:block}
+.doc a{display:inline-block;margin-top:6px;color:var(--g)}
 .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.hide{display:none}
+
+/* settings */
+.setrow{display:flex;align-items:center;gap:8px}
+.setrow input{margin:0;flex:1}
 </style>
 </head>
 <body>
-<div class="wrap" id="app"></div>
+<div class="wrap" id="app"><div class="mu">Loading…</div></div>
 
-<script>
-/* ====== CONFIG ====== */
-const SUPABASE_URL = 'https://wpqmqduwbqlrmhhtqsnw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc';   // copy it from your old admin index.html
-const DOC_BUCKET = 'documents';                          // name of your Supabase storage bucket
-const ADMIN_EMAIL = 'sekhobokatleho@gmail.com';
-/* ==================== */
-
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const app = document.getElementById('app');
-const S = { who:'drivers', sec:'pending', openId:null, data:null, msg:'', msgType:'err' };
-
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const norm = s => { s = (s || 'pending').toLowerCase(); if (['approved','verified'].includes(s)) return 'approved'; if (s === 'rejected') return 'rejected'; return 'pending'; };
-const fmtDate = d => d ? new Date(d).toLocaleDateString('en-ZA') : '';
-
-function flash(m, t){ S.msg = m; S.msgType = t || 'err'; }
-
-/* ---------- login ---------- */
-function renderLogin(err){
-  app.innerHTML = `
-    <div class="top"><h1>DriverMatch Admin</h1></div>
-    <div class="card">
-      <input id="em" type="email" placeholder="Admin email" autocomplete="username" value="${esc(ADMIN_EMAIL)}">
-      <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
-      <div class="err">${esc(err || '')}</div>
-      <button class="p" id="go">Log in</button>
-    </div>`;
-  document.getElementById('go').onclick = async () => {
-    const email = document.getElementById('em').value.trim();
-    const password = document.getElementById('pw').value;
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return renderLogin(error.message);
-    start();
-  };
-}
-
-/* ---------- data ---------- */
-async function loadAll(){
-  const [dp, pr, vh, dc] = await Promise.all([
-    sb.from('driver_profiles').select('*'),
-    sb.from('profiles').select('id,full_name,phone,email,role'),
-    sb.from('vehicles').select('*'),
-    sb.from('documents').select('*').order('created_at', { ascending:false })
-  ]);
-  const bad = [dp, pr, vh, dc].find(r => r.error);
-  if (bad) throw new Error(bad.error.message);
-  const profiles = {}; pr.data.forEach(p => profiles[p.id] = p);
-  S.data = { drivers: dp.data, vehicles: vh.data, docs: dc.data, profiles };
-}
-
-/* ---------- list view ---------- */
-function items(){
-  const D = S.data;
-  if (S.who === 'drivers') {
-    return D.drivers.map(d => ({
-      id: d.user_id, status: norm(d.verification_status), reason: d.rejection_reason,
-      title: D.profiles[d.user_id]?.full_name || d.driver_code || 'Driver',
-      code: d.driver_code,
-      place: [d.suburb, d.city].filter(Boolean).join(', '),
-      raw: d
-    }));
-  }
-  return D.vehicles.map(v => ({
-    id: v.id, status: norm(v.status), reason: v.rejection_reason,
-    title: `${v.vehicle_code || 'Vehicle'} · ${[v.make, v.model, v.year].filter(Boolean).join(' ')}`,
-    owner: D.profiles[v.owner_id]?.full_name || 'Owner',
-    code: v.vehicle_code,
-    place: [v.suburb, v.city].filter(Boolean).join(', '),
-    raw: v
-  }));
-}
-
-function renderList(){
-  const all = items();
-  const count = k => all.filter(i => i.status === k).length;
-  const list = all.filter(i => i.status === S.sec);
-  app.innerHTML = `
-    <div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
-    <div class="tabs">
-      <button data-w="drivers" class="${S.who==='drivers'?'on':''}">Drivers</button>
-      <button data-w="owners" class="${S.who==='owners'?'on':''}">Owners</button>
-    </div>
-    <div class="subs">
-      ${['pending','approved','rejected'].map(k => `<button data-s="${k}" class="${S.sec===k?'on':''}">${k[0].toUpperCase()+k.slice(1)} (${count(k)})</button>`).join('')}
-    </div>
-    <div class="${S.msgType}">${esc(S.msg)}</div>
-    ${list.length ? list.map(i => `
-      <div class="card click" data-id="${esc(i.id)}">
-        <div class="row"><b>${esc(i.title)}</b><span class="tag ${i.status}">${i.status}</span></div>
-        ${S.who==='owners' ? `<div class="mu">Owner: ${esc(i.owner)}</div>` : ''}
-        <div class="mu">${esc(i.place || 'No location')}</div>
-      </div>`).join('') : `<div class="mu">Nothing in ${S.sec}.</div>`}
-  `;
-  document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
-  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { S.who = b.dataset.w; S.msg=''; renderList(); });
-  app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { S.sec = b.dataset.s; S.msg=''; renderList(); });
-  app.querySelectorAll('[data-id]').forEach(c => c.onclick = () => { S.openId = c.dataset.id; S.msg=''; renderDetail(); });
-}
-
-/* ---------- detail view ---------- */
-async function renderDetail(){
-  const D = S.data;
-  const it = items().find(i => String(i.id) === String(S.openId));
-  if (!it) { S.openId = null; return renderList(); }
-
-  let person, docs, kv;
-  if (S.who === 'drivers') {
-    const p = D.profiles[it.raw.user_id] || {};
-    person = p;
-    docs = D.docs.filter(d => d.user_id === it.raw.user_id);
-    kv = [['Name', p.full_name], ['Phone', p.phone], ['Email', p.email], ['Driver code', it.raw.driver_code],
-          ['Licence', it.raw.licence_type], ['Location', it.place], ['Weekly offer', it.raw.weekly_offer ? 'R' + it.raw.weekly_offer : ''],
-          ['Joined', fmtDate(it.raw.created_at)]];
-  } else {
-    const v = it.raw, p = D.profiles[v.owner_id] || {};
-    person = p;
-    docs = D.docs.filter(d => d.vehicle_id === v.id || (d.user_id === v.owner_id && !d.vehicle_id));
-    kv = [['Owner', p.full_name], ['Phone', p.phone], ['Email', p.email], ['Vehicle', `${v.vehicle_code || ''} (${v.vehicle_type || ''})`],
-          ['Make / model', [v.make, v.model, v.year].filter(Boolean).join(' ')], ['Kms', v.kms], ['Location', it.place],
-          ['Weekly amount', v.weekly_amount ? 'R' + v.weekly_amount : '']];
-  }
-
-  app.innerHTML = `
-    <div class="top"><button id="back">← Back</button><span class="tag ${it.status}">${it.status}</span></div>
-    <h2>${esc(it.title)}</h2>
-    <div class="card"><div class="kv">${kv.map(([k,v]) => `<span>${esc(k)}</span><span>${esc(v || '—')}</span>`).join('')}</div>
-      ${it.reason ? `<div class="err">Reason: ${esc(it.reason)}</div>` : ''}</div>
-    <h2>Documents (${docs.length})</h2>
-    <div id="docs"><div class="mu">Loading documents…</div></div>
-    <div class="${S.msgType}" id="msg">${esc(S.msg)}</div>
-    <div class="card">
-      <textarea id="why" rows="2" placeholder="Reason (required for rejecting or revoking)"></textarea>
-      <div class="acts">
-        ${it.status !== 'approved' ? '<button class="p" id="ap">Approve</button>' : ''}
-        ${it.status === 'approved' ? '<button class="d" id="rv">Revoke</button>' : ''}
-        ${it.status === 'pending' ? '<button class="d" id="rj">Reject</button>' : ''}
-      </div>
-    </div>`;
-  document.getElementById('back').onclick = () => { S.openId = null; S.msg=''; renderList(); };
-
-  const setStatus = async (status, needReason) => {
-    const reason = document.getElementById('why').value.trim();
-    if (needReason && !reason) return showMsg('Please type a reason first.');
-    const patch = S.who === 'drivers'
-      ? { verification_status: status, rejection_reason: status === 'approved' ? null : reason }
-      : { status: status, rejection_reason: status === 'approved' ? null : reason };
-    const q = S.who === 'drivers'
-      ? sb.from('driver_profiles').update(patch).eq('user_id', it.raw.user_id)
-      : sb.from('vehicles').update(patch).eq('id', it.raw.id);
-    const { data, error } = await q.select();
-    if (error) return showMsg(error.message);
-    if (!data || !data.length) return showMsg('Update was blocked. The admin policy is missing (run the SQL).');
-    await loadAll();
-    S.sec = status; S.openId = null;
-    flash(`Moved to ${status}.`, 'ok');
-    renderList();
-  };
-  const showMsg = m => { const e = document.getElementById('msg'); e.className = 'err'; e.textContent = m; };
-
-  const ap = document.getElementById('ap'), rj = document.getElementById('rj'), rv = document.getElementById('rv');
-  if (ap) ap.onclick = () => setStatus('approved', false);
-  if (rj) rj.onclick = () => setStatus('rejected', true);
-  if (rv) rv.onclick = () => setStatus('rejected', true);
-
-  // documents
-  const box = document.getElementById('docs');
-  if (!docs.length) { box.innerHTML = '<div class="mu">No documents uploaded.</div>'; return; }
-  const parts = await Promise.all(docs.map(async d => {
-    const { data, error } = await sb.storage.from(DOC_BUCKET).createSignedUrl(d.file_path, 900);
-    const url = data?.signedUrl;
-    const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path || '');
-    return `<div class="doc">
-      <div class="row"><b>${esc((d.doc_type || 'document').replace(/_/g,' '))}</b><span class="mu">${fmtDate(d.created_at)}</span></div>
-      ${error ? `<div class="err">Cannot open file: ${esc(error.message)}</div>` :
-        (isImg ? `<a href="${url}" target="_blank"><img src="${url}" alt="document"></a>` : `<a href="${url}" target="_blank">Open file</a>`)}
-    </div>`;
-  }));
-  box.innerHTML = parts.join('');
-}
-
-/* ---------- start ---------- */
-async function start(){
-  const { data:{ session } } = await sb.auth.getSession();
-  if (!session) return renderLogin();
-  app.innerHTML = '<div class="mu">Loading…</div>';
-  try {
-    await loadAll();
-    renderList();
-  } catch (e) {
-    app.innerHTML = `<div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
-      <div class="err">${esc(e.message)}</div><div class="mu">If this says permission denied or returns nothing, run the admin SQL.</div>`;
-    document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
-  }
-}
-start();
-</script>
+<!-- Order matters: config first, then js1 (core), js2 (drivers/owners), js3 (matches, payments, reports, settings, start) -->
+<script src="config.js"></script>
+<script src="js1.js"></script>
+<script src="js2.js"></script>
+<script src="js3.js"></script>
 </body>
 </html>
