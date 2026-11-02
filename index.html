@@ -51,7 +51,7 @@ button.w{background:var(--am);color:#fff;border-color:var(--am)}
 <script>
 /* ====== CONFIG ====== */
 const SUPABASE_URL = 'https://wpqmqduwbqlrmhhtqsnw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc';   // keep the real key from your current admin index.html
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';   // keep the real key from your current admin index.html
 const DOC_BUCKET = 'documents';
 const ADMIN_EMAIL = 'sekhobokatleho@gmail.com';
 /* ==================== */
@@ -86,21 +86,22 @@ function renderLogin(err){
 
 /* ---------- data ---------- */
 async function loadAll(){
-  const [dp, pr, vh, dc, tk, us, mt] = await Promise.all([
+  const [dp, pr, vh, dc, tk, us, mt, cn] = await Promise.all([
     sb.from('driver_profiles').select('*'),
     sb.from('profiles').select('id,full_name,phone,email,role'),
     sb.from('vehicles').select('*'),
     sb.from('documents').select('*').order('created_at', { ascending:false }),
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
     sb.from('user_status').select('*'),
-    sb.from('matches').select('*')
+    sb.from('matches').select('*'),
+    sb.from('match_cancellations').select('*').order('created_at', { ascending:false })
   ]);
   const bad = [dp, pr, vh, dc].find(r => r.error);
   if (bad) throw new Error(bad.error.message);
   const profiles = {}; pr.data.forEach(p => profiles[p.id] = p);
   const status = {}; (us.error ? [] : us.data).forEach(s => status[s.user_id] = s);
   S.data = { drivers: dp.data, vehicles: vh.data, docs: dc.data, profiles,
-    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data };
+    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data, cancels: cn.error ? null : cn.data };
 }
 
 /* ---------- shell + nav ---------- */
@@ -295,8 +296,9 @@ function renderReports(){
     <div class="subs">
       <button data-r="open" class="${S.rsec==='open'?'on':''}">Open (${nOpen})</button>
       <button data-r="resolved" class="${S.rsec==='resolved'?'on':''}">Resolved (${nRes})</button>
+      <button data-r="cancel" class="${S.rsec==='cancel'?'on':''}">Cancels (${(D.cancels || []).length})</button>
     </div>
-    ${list.length ? list.map(t => {
+    ${S.rsec === 'cancel' ? cancelsHtml() : list.length ? list.map(t => {
       const p = D.profiles[t.user_id] || {};
       return `<div class="card click" data-t="${esc(t.id)}">
         <div class="row"><b>${esc(t.subject || 'Issue')}</b><span class="tag ${esc(t.status || 'open')}">${esc(t.status || 'open')}</span></div>
@@ -305,6 +307,22 @@ function renderReports(){
     }).join('') : '<div class="mu">No reports here.</div>'}`);
   app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { S.rsec = b.dataset.r; renderReports(); });
   app.querySelectorAll('[data-t]').forEach(c => c.onclick = () => { S.tid = c.dataset.t; S.msg=''; renderReports(); });
+}
+
+function cancelsHtml(){
+  const D = S.data, C = D.cancels;
+  if (!C) return '<div class="mu">Cancellations are not set up yet. Run the cancellations SQL in Supabase.</div>';
+  if (!C.length) return '<div class="mu">No cancelled matches yet.</div>';
+  const nm = id => (D.profiles[id] || {}).full_name || 'Deleted user';
+  const counts = {}; C.forEach(c => counts[c.cancelled_by] = (counts[c.cancelled_by] || 0) + 1);
+  const repeat = Object.entries(counts).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
+  return (repeat.length ? `<div class="card"><b>Repeat cancellers</b>${repeat.map(([id, n]) => `<div class="mu">${esc(nm(id))} · ${n} cancellations</div>`).join('')}</div>` : '')
+    + C.map(c => {
+      const other = c.cancelled_by_role === 'driver' ? c.owner_id : c.driver_id;
+      return `<div class="card"><div class="row"><b>${esc(nm(c.cancelled_by))}</b><span class="tag blocked">${esc(c.cancelled_by_role || '')}</span></div>
+        <div class="mu">${esc(c.reason || 'No reason')}</div>
+        <div class="mu">Vehicle: ${esc(c.vehicle_label || '—')} · Other person: ${esc(other ? nm(other) : '—')} · ${fmtDate(c.created_at)}</div></div>`;
+    }).join('');
 }
 
 function renderTicket(){
