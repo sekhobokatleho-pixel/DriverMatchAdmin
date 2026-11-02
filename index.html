@@ -51,14 +51,14 @@ button.w{background:var(--am);color:#fff;border-color:var(--am)}
 <script>
 /* ====== CONFIG ====== */
 const SUPABASE_URL = 'https://wpqmqduwbqlrmhhtqsnw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc';   // keep the real key from your current admin index.html
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';   // keep the real key from your current admin index.html
 const DOC_BUCKET = 'documents';
 const ADMIN_EMAIL = 'sekhobokatleho@gmail.com';
 /* ==================== */
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
-const S = { page:'dash', who:'drivers', sec:'pending', openId:null, data:null, msg:'', msgType:'err', rsec:'open', tid:null, uid:null, q:'' };
+const S = { page:'dash', who:'drivers', sec:'pending', openId:null, data:null, msg:'', msgType:'err', rsec:'open', tid:null, uid:null, q:'', swho:'drivers' };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm = s => { s = (s || 'pending').toLowerCase(); if (['approved','verified'].includes(s)) return 'approved'; if (s === 'rejected') return 'rejected'; return 'pending'; };
@@ -349,21 +349,30 @@ function acctOf(id){ return S.data.status[id]?.status || 'active'; }
 
 function renderSettings(){
   if (S.uid) return renderUser();
+  const isOwner = p => String(p.role || '').toLowerCase().includes('owner');
+  const base = Object.values(S.data.profiles).filter(p => p.email !== ADMIN_EMAIL);
+  const nD = base.filter(p => !isOwner(p)).length, nO = base.filter(isOwner).length;
+  const label = S.swho === 'owners' ? 'owner' : 'driver';
   shell(`
     <h2>Manage users</h2>
-    <div class="mu">Search a user, then disable, block or delete them.</div>
-    <input id="q" placeholder="Search name, email or phone" value="${esc(S.q)}">
+    <div class="subs">
+      <button data-sw="drivers" class="${S.swho==='drivers'?'on':''}">Drivers (${nD})</button>
+      <button data-sw="owners" class="${S.swho==='owners'?'on':''}">Owners (${nO})</button>
+    </div>
+    <div class="mu">Search a ${label}, then disable, block or delete them.</div>
+    <input id="q" placeholder="Search ${label} name, email or phone" value="${esc(S.q)}">
     <div id="ul"></div>`);
   const draw = () => {
     const q = S.q.trim().toLowerCase();
-    const all = Object.values(S.data.profiles).filter(p => p.email !== ADMIN_EMAIL);
+    const all = base.filter(p => S.swho === 'owners' ? isOwner(p) : !isOwner(p));
     const list = all.filter(p => !q || [p.full_name, p.email, p.phone].some(v => String(v || '').toLowerCase().includes(q))).slice(0, 40);
     document.getElementById('ul').innerHTML = list.length ? list.map(p => `
       <div class="card click" data-u="${esc(p.id)}">
         <div class="row"><b>${esc(p.full_name || 'No name')}</b><span class="tag ${acctOf(p.id)}">${acctOf(p.id)}</span></div>
-        <div class="mu">${esc(p.role || '')} · ${esc(p.email || '')} · ${esc(p.phone || '')}</div></div>`).join('') : '<div class="mu">No users found.</div>';
+        <div class="mu">${esc(p.email || '')} · ${esc(p.phone || '')}</div></div>`).join('') : `<div class="mu">No ${label}s found.</div>`;
     app.querySelectorAll('[data-u]').forEach(c => c.onclick = () => { S.uid = c.dataset.u; S.msg=''; renderSettings(); });
   };
+  app.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { S.swho = b.dataset.sw; S.q = ''; S.msg=''; renderSettings(); });
   document.getElementById('q').oninput = e => { S.q = e.target.value; draw(); };
   draw();
 }
