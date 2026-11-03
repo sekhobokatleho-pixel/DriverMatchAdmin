@@ -277,7 +277,7 @@ async function renderDetail(){
     const url = data?.signedUrl;
     const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path || '');
     return `<div class="doc">
-      <div class="row"><b>${esc((d.doc_type || 'document').replace(/_/g,' '))}</b><span class="mu">${fmtDate(d.created_at)}</span></div>
+      <div class="row"><b>${esc((d.doc_type || 'document').replace(/_/g,' '))}${d.label ? ' · ' + esc(d.label) : ''}</b><span class="mu">${fmtDate(d.created_at)}</span></div>
       ${error ? `<div class="err">Cannot open file: ${esc(error.message)}</div>` :
         (isImg ? `<a href="${url}" target="_blank"><img src="${url}" alt="document"></a>` : `<a href="${url}" target="_blank">Open file</a>`)}
     </div>`;
