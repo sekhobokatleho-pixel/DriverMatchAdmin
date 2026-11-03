@@ -15,13 +15,13 @@ h2{font-size:18px;margin:12px 0 6px}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .err{color:var(--rd);margin:8px 0;font-size:15px}
 .ok{color:var(--g);margin:8px 0;font-size:15px}
-input,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:16px;margin:6px 0;font-family:inherit}
+input,textarea,select{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:16px;margin:6px 0;font-family:inherit}
 button{font-size:16px;border-radius:10px;border:1px solid var(--bd);background:#fff;padding:10px 14px;cursor:pointer;color:var(--tx)}
 button.p{background:var(--g);color:#fff;border-color:var(--g)}
 button.d{background:var(--rd);color:#fff;border-color:var(--rd)}
 button.w{background:var(--am);color:#fff;border-color:var(--am)}
 .tabs{display:flex;gap:6px;margin:10px 0}
-.tabs button{flex:1;padding:10px 2px;font-size:14px}
+.tabs button{flex:1;padding:10px 2px;font-size:13px}
 .tabs button.on{background:var(--g);color:#fff;border-color:var(--g)}
 .subs{display:flex;gap:6px;margin:8px 0 12px}
 .subs button{flex:1;padding:8px 4px;font-size:14px}
@@ -51,14 +51,14 @@ button.w{background:var(--am);color:#fff;border-color:var(--am)}
 <script>
 /* ====== CONFIG ====== */
 const SUPABASE_URL = 'https://wpqmqduwbqlrmhhtqsnw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc';   // keep the real key from your current admin index.html
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc';
 const DOC_BUCKET = 'documents';
 const ADMIN_EMAIL = 'sekhobokatleho@gmail.com';
 /* ==================== */
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
-const S = { page:'dash', who:'drivers', sec:'pending', openId:null, data:null, msg:'', msgType:'err', rsec:'open', tid:null, uid:null, q:'', swho:'drivers' };
+const S = { mt:'', mb:'', ma:'all', page:'dash', who:'drivers', sec:'pending', openId:null, data:null, msg:'', msgType:'err', rsec:'open', tid:null, uid:null, q:'', swho:'drivers' };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm = s => { s = (s || 'pending').toLowerCase(); if (['approved','verified'].includes(s)) return 'approved'; if (s === 'rejected') return 'rejected'; return 'pending'; };
@@ -86,29 +86,28 @@ function renderLogin(err){
 
 /* ---------- data ---------- */
 async function loadAll(){
-  const [dp, pr, vh, dc, tk, us, mt, cn] = await Promise.all([
+  const [dp, pr, vh, dc, tk, us, mt] = await Promise.all([
     sb.from('driver_profiles').select('*'),
     sb.from('profiles').select('id,full_name,phone,email,role'),
     sb.from('vehicles').select('*'),
     sb.from('documents').select('*').order('created_at', { ascending:false }),
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
     sb.from('user_status').select('*'),
-    sb.from('matches').select('*'),
-    sb.from('match_cancellations').select('*').order('created_at', { ascending:false })
+    sb.from('matches').select('*')
   ]);
   const bad = [dp, pr, vh, dc].find(r => r.error);
   if (bad) throw new Error(bad.error.message);
   const profiles = {}; pr.data.forEach(p => profiles[p.id] = p);
   const status = {}; (us.error ? [] : us.data).forEach(s => status[s.user_id] = s);
   S.data = { drivers: dp.data, vehicles: vh.data, docs: dc.data, profiles,
-    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data, cancels: cn.error ? null : cn.data };
+    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data };
 }
 
 /* ---------- shell + nav ---------- */
 function openTickets(){ return (S.data?.tickets || []).filter(t => (t.status || 'open') !== 'resolved').length; }
 function shell(html){
   const n = openTickets();
-  const tabs = [['dash','Dashboard'],['people','People'],['reports','Reports' + (n ? ` (${n})` : '')],['settings','Settings']];
+  const tabs = [['dash','Dashboard'],['people','People'],['reports','Reports' + (n ? ` (${n})` : '')],['messages','Messages'],['settings','Settings']];
   app.innerHTML = `
     <div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
     <div class="tabs">${tabs.map(([k,l]) => `<button data-p="${k}" class="${S.page===k?'on':''}">${l}</button>`).join('')}</div>
@@ -121,6 +120,7 @@ function go(p){ S.page = p; S.msg = ''; S.openId = null; S.tid = null; S.uid = n
 function render(){
   if (S.page === 'dash') return renderDash();
   if (S.page === 'reports') return renderReports();
+  if (S.page === 'messages') return renderMessages();
   if (S.page === 'settings') return renderSettings();
   return renderList();
 }
@@ -296,9 +296,8 @@ function renderReports(){
     <div class="subs">
       <button data-r="open" class="${S.rsec==='open'?'on':''}">Open (${nOpen})</button>
       <button data-r="resolved" class="${S.rsec==='resolved'?'on':''}">Resolved (${nRes})</button>
-      <button data-r="cancel" class="${S.rsec==='cancel'?'on':''}">Cancels (${(D.cancels || []).length})</button>
     </div>
-    ${S.rsec === 'cancel' ? cancelsHtml() : list.length ? list.map(t => {
+    ${list.length ? list.map(t => {
       const p = D.profiles[t.user_id] || {};
       return `<div class="card click" data-t="${esc(t.id)}">
         <div class="row"><b>${esc(t.subject || 'Issue')}</b><span class="tag ${esc(t.status || 'open')}">${esc(t.status || 'open')}</span></div>
@@ -307,22 +306,6 @@ function renderReports(){
     }).join('') : '<div class="mu">No reports here.</div>'}`);
   app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { S.rsec = b.dataset.r; renderReports(); });
   app.querySelectorAll('[data-t]').forEach(c => c.onclick = () => { S.tid = c.dataset.t; S.msg=''; renderReports(); });
-}
-
-function cancelsHtml(){
-  const D = S.data, C = D.cancels;
-  if (!C) return '<div class="mu">Cancellations are not set up yet. Run the cancellations SQL in Supabase.</div>';
-  if (!C.length) return '<div class="mu">No cancelled matches yet.</div>';
-  const nm = id => (D.profiles[id] || {}).full_name || 'Deleted user';
-  const counts = {}; C.forEach(c => counts[c.cancelled_by] = (counts[c.cancelled_by] || 0) + 1);
-  const repeat = Object.entries(counts).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
-  return (repeat.length ? `<div class="card"><b>Repeat cancellers</b>${repeat.map(([id, n]) => `<div class="mu">${esc(nm(id))} · ${n} cancellations</div>`).join('')}</div>` : '')
-    + C.map(c => {
-      const other = c.cancelled_by_role === 'driver' ? c.owner_id : c.driver_id;
-      return `<div class="card"><div class="row"><b>${esc(nm(c.cancelled_by))}</b><span class="tag blocked">${esc(c.cancelled_by_role || '')}</span></div>
-        <div class="mu">${esc(c.reason || 'No reason')}</div>
-        <div class="mu">Vehicle: ${esc(c.vehicle_label || '—')} · Other person: ${esc(other ? nm(other) : '—')} · ${fmtDate(c.created_at)}</div></div>`;
-    }).join('');
 }
 
 function renderTicket(){
@@ -451,6 +434,37 @@ function renderUser(){
 }
 
 /* ---------- start ---------- */
+/* ---------- messages to drivers / owners ---------- */
+function renderMessages(){
+  const who = { all:'all drivers and owners', drivers:'all drivers', owners:'all owners' };
+  shell(`
+    <h2>Send a message</h2>
+    <div class="mu">It pops up on their screen with an Okay button, and stays in their Alerts.</div>
+    <select id="ma">
+      <option value="all">Everyone (drivers and owners)</option>
+      <option value="drivers">Drivers only</option>
+      <option value="owners">Owners only</option>
+    </select>
+    <input id="mt" maxlength="80" placeholder="Title, e.g. Important update" value="${esc(S.mt)}">
+    <textarea id="mb" rows="6" placeholder="Write your message…">${esc(S.mb)}</textarea>
+    <div class="acts"><button class="p" id="send">Send message</button></div>`);
+  const ma = document.getElementById('ma'), mt = document.getElementById('mt'), mb = document.getElementById('mb');
+  ma.value = S.ma;
+  ma.onchange = () => S.ma = ma.value;
+  mt.oninput = () => S.mt = mt.value;
+  mb.oninput = () => S.mb = mb.value;
+  document.getElementById('send').onclick = async () => {
+    const title = S.mt.trim(), body = S.mb.trim();
+    if (!title || !body) { flash('Add a title and a message first.'); return renderMessages(); }
+    if (!confirm('Send this to ' + who[S.ma] + '?')) return;
+    const btn = document.getElementById('send'); btn.disabled = true; btn.textContent = 'Sending…';
+    const { data, error } = await sb.rpc('admin_broadcast', { p_title: title, p_body: body, p_audience: S.ma });
+    if (error) { flash(error.message); return renderMessages(); }
+    S.mt = ''; S.mb = '';
+    flash('Sent to ' + data + ' ' + (data === 1 ? 'person' : 'people') + '.', 'ok');
+    renderMessages();
+  };
+}
 async function start(){
   const { data:{ session } } = await sb.auth.getSession();
   if (!session) return renderLogin();
