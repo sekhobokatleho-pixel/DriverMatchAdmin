@@ -88,7 +88,7 @@ function renderLogin(err){
 async function loadAll(){
   const [dp, pr, vh, dc, tk, us, mt] = await Promise.all([
     sb.from('driver_profiles').select('*'),
-    sb.from('profiles').select('id,full_name,phone,email,role'),
+    sb.from('profiles').select('id,full_name,phone,email,role,age,address'),
     sb.from('vehicles').select('*'),
     sb.from('documents').select('*').order('created_at', { ascending:false }),
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
@@ -219,13 +219,13 @@ async function renderDetail(){
   if (S.who === 'drivers') {
     const p = D.profiles[it.raw.user_id] || {};
     docs = D.docs.filter(d => d.user_id === it.raw.user_id);
-    kv = [['Name', p.full_name], ['Phone', p.phone], ['Email', p.email], ['Driver code', it.raw.driver_code],
+    kv = [['Name', p.full_name], ['Age', p.age], ['Address', p.address], ['Phone', p.phone], ['Email', p.email], ['Driver code', it.raw.driver_code],
           ['Licence', it.raw.licence_type], ['Location', it.place], ['Weekly offer', it.raw.weekly_offer ? 'R' + it.raw.weekly_offer : ''],
           ['Joined', fmtDate(it.raw.created_at)]];
   } else {
     const v = it.raw, p = D.profiles[v.owner_id] || {};
     docs = D.docs.filter(d => d.vehicle_id === v.id || (d.user_id === v.owner_id && !d.vehicle_id));
-    kv = [['Owner', p.full_name], ['Phone', p.phone], ['Email', p.email], ['Vehicle', `${v.vehicle_code || ''} (${v.vehicle_type || ''})`],
+    kv = [['Owner', p.full_name], ['Age', p.age], ['Address', p.address], ['Phone', p.phone], ['Email', p.email], ['Vehicle', `${v.vehicle_code || ''} (${v.vehicle_type || ''})`],
           ['Make / model', [v.make, v.model, v.year].filter(Boolean).join(' ')], ['Kms', v.kms], ['Location', it.place],
           ['Weekly amount', v.weekly_amount ? 'R' + v.weekly_amount : '']];
   }
@@ -391,7 +391,7 @@ function renderUser(){
     <button id="back">← Back</button>
     <h2>${esc(p.full_name || 'User')}</h2>
     <div class="card"><div class="kv"><span>Role</span><span>${esc(p.role || '—')}</span><span>Phone</span><span>${esc(p.phone || '—')}</span>
-      <span>Email</span><span>${esc(p.email || '—')}</span><span>Account</span><span class="tag ${st}" style="width:fit-content">${st}</span></div>
+      <span>Email</span><span>${esc(p.email || '—')}</span><span>Age</span><span>${esc(p.age || '—')}</span><span>Address</span><span>${esc(p.address || '—')}</span><span>Account</span><span class="tag ${st}" style="width:fit-content">${st}</span></div>
       ${why ? `<div class="mu">Reason: ${esc(why)}</div>` : ''}</div>
     <div class="card">
       <textarea id="why" rows="2" placeholder="Reason (kept on record)"></textarea>
