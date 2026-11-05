@@ -88,7 +88,7 @@ function renderLogin(err){
 async function loadAll(){
   const [dp, pr, vh, dc, tk, us, mt] = await Promise.all([
     sb.from('driver_profiles').select('*'),
-    sb.from('profiles').select('id,full_name,phone,email,role,age,address'),
+    sb.from('profiles').select('id,full_name,phone,email,role,age,address,onboarded'),
     sb.from('vehicles').select('*'),
     sb.from('documents').select('*').order('created_at', { ascending:false }),
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
@@ -417,6 +417,9 @@ function renderUser(){
       </div>
       <div class="mu" style="margin-top:10px">Disable: temporary, can be reactivated. Block: cannot log in.</div>
     </div>
+    <div class="card"><b>Onboarding: ${p.onboarded ? 'done' : 'not done'}</b>
+      <div class="mu">For testing. Skip marks them as verified so they go straight into the app. Restart deletes their personal documents (ID, selfie, licence and so on, not vehicle photos) and shows them the onboarding screens again at next login.</div>
+      <div class="acts"><button class="p" id="obskip">Skip onboarding</button><button class="w" id="obreset">Restart onboarding</button></div></div>
     <div class="card"><b>Delete user</b>
       <div class="mu">Removes their profile, vehicles, documents and driver data, and blocks the login. Cannot be undone.</div>
       <div class="acts"><button class="d" id="del">Delete user</button></div></div>`);
@@ -430,6 +433,14 @@ function renderUser(){
   if (a) a.onclick = () => change('active');
   if (d) d.onclick = () => change('disabled');
   if (b) b.onclick = () => change('blocked');
+  const ob = async (done, clear) => {
+    if (clear) { const r = await sb.from('documents').delete().eq('user_id', p.id).is('vehicle_id', null); if (r.error) { flash(r.error.message); return renderUser(); } }
+    const { error } = await sb.rpc('admin_set_onboarding', { p_user: p.id, p_done: done });
+    if (error) { flash(error.message.includes('function') ? 'Run admin_onboarding.sql in Supabase first.' : error.message); return renderUser(); }
+    await loadAll(); flash(done ? 'Onboarding skipped. They go straight in.' : 'Onboarding restarted. They will see it at next login.', 'ok'); renderUser();
+  };
+  document.getElementById('obskip').onclick = () => ob(true, false);
+  document.getElementById('obreset').onclick = () => { if (confirm('Restart onboarding for this user? Their personal documents will be deleted.')) ob(false, true); };
   document.getElementById('del').onclick = async () => {
     if (!confirm('Delete this user and all their data? This cannot be undone.')) return;
     const e = await setAcct(p.id, 'blocked', 'Deleted by admin');
