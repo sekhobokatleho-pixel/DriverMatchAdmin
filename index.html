@@ -116,9 +116,10 @@ function shell(html){
   document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
   app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => go(b.dataset.p));
 }
-function go(p){ S.page = p; S.msg = ''; S.openId = null; S.tid = null; S.uid = null; render(); }
+function go(p, f){ S.page = p; S.msg = ''; S.openId = null; S.tid = null; S.uid = null; S.sstat = f || ''; render(); }
 function render(){
   if (S.page === 'dash') return renderDash();
+  if (S.page === 'matchlist') return renderMatches();
   if (S.page === 'reports') return renderReports();
   if (S.page === 'messages') return renderMessages();
   if (S.page === 'settings') return renderSettings();
@@ -135,20 +136,20 @@ function renderDash(){
   let matchHtml = '';
   if (D.matches) {
     const by = {}; D.matches.forEach(m => { const k = m.status || 'unknown'; by[k] = (by[k] || 0) + 1; });
-    matchHtml = `<h2>Matches</h2><div class="grid">${stat(D.matches.length, 'Total matches')}${Object.entries(by).map(([k,v]) => stat(v, esc(k))).join('')}</div>`;
+    matchHtml = `<h2>Matches</h2><div class="grid">${stat(D.matches.length, 'Total matches', 'matches:all')}${Object.entries(by).map(([k,v]) => stat(v, esc(k), 'matches:' + k)).join('')}</div>`;
   }
   shell(`
     <h2>Drivers</h2>
     <div class="grid">
-      ${stat(dr.length, 'Total drivers')}
+      ${stat(dr.length, 'Total drivers', 'drivers:all')}
       ${stat(c(dr,'pending'), 'Pending', 'drivers:pending')}
       ${stat(c(dr,'approved'), 'Approved', 'drivers:approved')}
       ${stat(c(dr,'rejected'), 'Rejected', 'drivers:rejected')}
     </div>
     <h2>Owners</h2>
     <div class="grid">
-      ${stat(owners, 'Total owners')}
-      ${stat(ve.length, 'Total vehicles')}
+      ${stat(owners, 'Total owners', 'owners:all')}
+      ${stat(ve.length, 'Total vehicles', 'owners:all')}
       ${stat(c(ve,'pending'), 'Vehicles pending', 'owners:pending')}
       ${stat(c(ve,'approved'), 'Vehicles approved', 'owners:approved')}
       ${stat(c(ve,'rejected'), 'Vehicles rejected', 'owners:rejected')}
@@ -156,16 +157,30 @@ function renderDash(){
     ${matchHtml}
     <h2>Support & accounts</h2>
     <div class="grid">
-      ${stat(tk.filter(t => (t.status||'open') !== 'resolved').length, 'Open reports', 'reports')}
-      ${stat(tk.filter(t => t.status === 'resolved').length, 'Resolved reports')}
-      ${stat(st.filter(s => s.status === 'disabled').length, 'Disabled users')}
-      ${stat(st.filter(s => s.status === 'blocked').length, 'Blocked users')}
+      ${stat(tk.filter(t => (t.status||'open') !== 'resolved').length, 'Open reports', 'reports:open')}
+      ${stat(tk.filter(t => t.status === 'resolved').length, 'Resolved reports', 'reports:resolved')}
+      ${stat(st.filter(s => s.status === 'disabled').length, 'Disabled users', 'users:disabled')}
+      ${stat(st.filter(s => s.status === 'blocked').length, 'Blocked users', 'users:blocked')}
     </div>`);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => {
-    const g = el.dataset.go;
-    if (g === 'reports') return go('reports');
-    const [w, s] = g.split(':'); S.who = w; S.sec = s; go('people');
+    const [w, s] = el.dataset.go.split(':');
+    if (w === 'reports') { S.rsec = s || 'open'; return go('reports'); }
+    if (w === 'users') return go('settings', s);
+    if (w === 'matches') { S.msec = s; return go('matchlist'); }
+    S.who = w; S.sec = s; go('people');
   });
+}
+
+function renderMatches(){
+  const D = S.data, all = D.matches || [], st = m => m.status || 'unknown';
+  const ks = ['all', ...new Set(all.map(st))];
+  const list = S.msec === 'all' ? all : all.filter(m => st(m) === S.msec);
+  const nm = id => D.profiles[id]?.full_name;
+  shell(`<button id="bk">← Dashboard</button><h2>Matches</h2>
+    <div class="subs">${ks.map(k => `<button data-m="${esc(k)}" class="${S.msec===k?'on':''}">${esc(k)} (${k==='all' ? all.length : all.filter(m => st(m)===k).length})</button>`).join('')}</div>
+    ${list.length ? list.map(m => `<div class="card"><div class="row"><b>${esc([nm(m.driver_id), nm(m.owner_id)].filter(Boolean).join(' ↔ ') || 'Match')}</b><span class="tag">${esc(st(m))}</span></div><div class="mu">${m.created_at ? fmtDate(m.created_at) : ''}</div></div>`).join('') : '<div class="mu">No matches here.</div>'}`);
+  document.getElementById('bk').onclick = () => go('dash');
+  app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.msec = b.dataset.m; renderMatches(); });
 }
 
 /* ---------- people (drivers / owners) ---------- */
@@ -189,15 +204,15 @@ function items(who){
 
 function renderList(){
   const all = items();
-  const count = k => all.filter(i => i.status === k).length;
-  const list = all.filter(i => i.status === S.sec);
+  const count = k => k === 'all' ? all.length : all.filter(i => i.status === k).length;
+  const list = S.sec === 'all' ? all : all.filter(i => i.status === S.sec);
   shell(`
     <div class="tabs">
       <button data-w="drivers" class="${S.who==='drivers'?'on':''}">Drivers</button>
       <button data-w="owners" class="${S.who==='owners'?'on':''}">Owners</button>
     </div>
     <div class="subs">
-      ${['pending','approved','rejected'].map(k => `<button data-s="${k}" class="${S.sec===k?'on':''}">${k[0].toUpperCase()+k.slice(1)} (${count(k)})</button>`).join('')}
+      ${['all','pending','approved','rejected'].map(k => `<button data-s="${k}" class="${S.sec===k?'on':''}">${k[0].toUpperCase()+k.slice(1)} (${count(k)})</button>`).join('')}
     </div>
     ${list.length ? list.map(i => `
       <div class="card click" data-id="${esc(i.id)}">
@@ -360,12 +375,12 @@ function renderSettings(){
       <button data-sw="drivers" class="${S.swho==='drivers'?'on':''}">Drivers (${nD})</button>
       <button data-sw="owners" class="${S.swho==='owners'?'on':''}">Owners (${nO})</button>
     </div>
-    <div class="mu">Search a ${label}, then disable, block or delete them.</div>
+    ${S.sstat ? `<div class="mu">Showing ${S.sstat} users (drivers and owners). Tap Drivers or Owners to clear.</div>` : `<div class="mu">Search a ${label}, then disable, block or delete them.</div>`}
     <input id="q" placeholder="Search ${label} name, email or phone" value="${esc(S.q)}">
     <div id="ul"></div>`);
   const draw = () => {
     const q = S.q.trim().toLowerCase();
-    const all = base.filter(p => S.swho === 'owners' ? isOwner(p) : !isOwner(p));
+    const all = S.sstat ? base.filter(p => acctOf(p.id) === S.sstat) : base.filter(p => S.swho === 'owners' ? isOwner(p) : !isOwner(p));
     const list = all.filter(p => !q || [p.full_name, p.email, p.phone].some(v => String(v || '').toLowerCase().includes(q))).slice(0, 40);
     document.getElementById('ul').innerHTML = list.length ? list.map(p => `
       <div class="card click" data-u="${esc(p.id)}">
@@ -373,7 +388,7 @@ function renderSettings(){
         <div class="mu">${esc(p.email || '')} · ${esc(p.phone || '')}</div></div>`).join('') : `<div class="mu">No ${label}s found.</div>`;
     app.querySelectorAll('[data-u]').forEach(c => c.onclick = () => { S.uid = c.dataset.u; S.msg=''; renderSettings(); });
   };
-  app.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { S.swho = b.dataset.sw; S.q = ''; S.msg=''; renderSettings(); });
+  app.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { S.swho = b.dataset.sw; S.q = ''; S.sstat = ''; S.msg=''; renderSettings(); });
   document.getElementById('q').oninput = e => { S.q = e.target.value; draw(); };
   draw();
 }
