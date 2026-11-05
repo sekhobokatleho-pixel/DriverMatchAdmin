@@ -88,7 +88,7 @@ function renderLogin(err){
 async function loadAll(){
   const [dp, pr, vh, dc, tk, us, mt] = await Promise.all([
     sb.from('driver_profiles').select('*'),
-    sb.from('profiles').select('id,full_name,phone,email,role,age,address,onboarded'),
+    sb.from('profiles').select('id,full_name,phone,email,role,age,address,onboarded,onboarding_submitted_at'),
     sb.from('vehicles').select('*'),
     sb.from('documents').select('*').order('created_at', { ascending:false }),
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
@@ -107,7 +107,7 @@ async function loadAll(){
 function openTickets(){ return (S.data?.tickets || []).filter(t => (t.status || 'open') !== 'resolved').length; }
 function shell(html){
   const n = openTickets();
-  const tabs = [['dash','Dashboard'],['people','People'],['reports','Reports' + (n ? ` (${n})` : '')],['messages','Messages'],['settings','Settings']];
+  const tabs = [['dash','Dashboard' + (obPending().length ? ` (${obPending().length})` : '')],['people','People'],['reports','Reports' + (n ? ` (${n})` : '')],['messages','Messages'],['settings','Settings']];
   app.innerHTML = `
     <div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
     <div class="tabs">${tabs.map(([k,l]) => `<button data-p="${k}" class="${S.page===k?'on':''}">${l}</button>`).join('')}</div>
@@ -116,9 +116,10 @@ function shell(html){
   document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
   app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => go(b.dataset.p));
 }
-function go(p, f){ S.page = p; S.msg = ''; S.openId = null; S.tid = null; S.uid = null; S.sstat = f || ''; render(); }
+function go(p, f){ S.obid = null; S.page = p; S.msg = ''; S.openId = null; S.tid = null; S.uid = null; S.sstat = f || ''; render(); }
 function render(){
   if (S.page === 'dash') return renderDash();
+  if (S.page === 'obreview') return renderObReview();
   if (S.page === 'matchlist') return renderMatches();
   if (S.page === 'reports') return renderReports();
   if (S.page === 'messages') return renderMessages();
@@ -139,6 +140,10 @@ function renderDash(){
     matchHtml = `<h2>Matches</h2><div class="grid">${stat(D.matches.length, 'Total matches', 'matches:all')}${Object.entries(by).map(([k,v]) => stat(v, esc(k), 'matches:' + k)).join('')}</div>`;
   }
   shell(`
+    <h2>New signups</h2>
+    <div class="grid">
+      ${stat(obPending().length, 'Waiting for onboarding review', 'obreview:list')}
+    </div>
     <h2>Drivers</h2>
     <div class="grid">
       ${stat(dr.length, 'Total drivers', 'drivers:all')}
@@ -164,6 +169,7 @@ function renderDash(){
     </div>`);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => {
     const [w, s] = el.dataset.go.split(':');
+    if (w === 'obreview') return go('obreview');
     if (w === 'reports') { S.rsec = s || 'open'; return go('reports'); }
     if (w === 'users') return go('settings', s);
     if (w === 'matches') { S.msec = s; return go('matchlist'); }
@@ -298,6 +304,44 @@ async function renderDetail(){
     </div>`;
   }));
   box.innerHTML = parts.join('');
+}
+
+function obPending(){ return Object.values(S.data?.profiles || {}).filter(p => p.onboarding_submitted_at && !p.onboarded); }
+async function renderObReview(){
+  const D = S.data, list = obPending();
+  if (!S.obid) {
+    shell(`<h2>Onboarding to review</h2>${list.length ? list.map(p => `<div class="card" style="cursor:pointer" data-o="${p.id}"><div class="row"><b>${esc(p.full_name || 'User')}</b><span class="tag pending">${esc(p.role || '')}</span></div><div class="mu">Submitted ${fmtDate(p.onboarding_submitted_at)}</div></div>`).join('') : '<div class="mu">Nobody is waiting for review.</div>'}`);
+    app.querySelectorAll('[data-o]').forEach(el => el.onclick = () => { S.obid = el.dataset.o; renderObReview(); });
+    return;
+  }
+  const p = D.profiles[S.obid];
+  if (!p) { S.obid = null; return renderObReview(); }
+  const docs = D.docs.filter(d => d.user_id === p.id && !d.vehicle_id);
+  shell(`<button id="bk">← Back</button><h2>${esc(p.full_name || 'User')}</h2>
+    <div class="card"><div class="kv"><span>Role</span><span>${esc(p.role || '—')}</span><span>Age</span><span>${esc(p.age || '—')}</span><span>Address</span><span>${esc(p.address || '—')}</span><span>Phone</span><span>${esc(p.phone || '—')}</span><span>Email</span><span>${esc(p.email || '—')}</span></div></div>
+    <h2>Documents (${docs.length})</h2><div id="docs"><div class="mu">Loading documents…</div></div>
+    <div class="err" id="msg"></div>
+    <div class="card"><textarea id="why" rows="2" placeholder="Reason (required for rejecting)"></textarea>
+      <div class="acts"><button class="p" id="ap">Approve</button><button class="d" id="rj">Reject</button></div>
+      <div class="mu" style="margin-top:10px">Approve lets them into the app. Reject sends them back to upload their documents again, with your reason.</div></div>`);
+  document.getElementById('bk').onclick = () => { S.obid = null; renderObReview(); };
+  const review = async ok => {
+    const why = document.getElementById('why').value.trim(), m = document.getElementById('msg');
+    if (!ok && !why) { m.textContent = 'Please type a reason first.'; return; }
+    const { error } = await sb.rpc('admin_review_onboarding', { p_user: p.id, p_approve: ok, p_reason: ok ? null : why });
+    if (error) { m.textContent = error.message.includes('function') ? 'Run admin_onboarding.sql in Supabase first.' : error.message; return; }
+    await loadAll(); S.obid = null;
+    flash(ok ? 'Approved. They can enter the app.' : 'Rejected. They must upload again.', 'ok'); renderObReview();
+  };
+  document.getElementById('ap').onclick = () => review(true);
+  document.getElementById('rj').onclick = () => review(false);
+  const box = document.getElementById('docs');
+  if (!docs.length) { box.innerHTML = '<div class="mu">No documents uploaded.</div>'; return; }
+  box.innerHTML = (await Promise.all(docs.map(async d => {
+    const { data, error } = await sb.storage.from(DOC_BUCKET).createSignedUrl(d.file_path, 900);
+    const url = data?.signedUrl, isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path || '');
+    return `<div class="doc"><div class="row"><b>${esc((d.doc_type || 'document').replace(/_/g,' '))}</b><span class="mu">${fmtDate(d.created_at)}</span></div>${error ? `<div class="err">Cannot open file: ${esc(error.message)}</div>` : (isImg ? `<a href="${url}" target="_blank"><img src="${url}" alt="document"></a>` : `<a href="${url}" target="_blank">Open file</a>`)}</div>`;
+  }))).join('');
 }
 
 /* ---------- reports / support ---------- */
