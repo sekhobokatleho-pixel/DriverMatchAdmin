@@ -461,6 +461,9 @@ function renderUser(){
       </div>
       <div class="mu" style="margin-top:10px">Disable: temporary, can be reactivated. Block: cannot log in.</div>
     </div>
+    <div class="card"><b>Password</b>
+      <div class="mu">Sends the user an email with a link to choose a new password. You never see their password. Not for Google sign-ins.</div>
+      <div class="acts"><button class="w" id="pwreset">Send password reset email</button></div></div>
     <div class="card"><b>Onboarding: ${p.onboarded ? 'done' : 'not done'}</b>
       <div class="mu">For testing. Skip marks them as verified so they go straight into the app. Restart deletes their personal documents (ID, selfie, licence and so on, not vehicle photos) and shows them the onboarding screens again at next login.</div>
       <div class="acts"><button class="p" id="obskip">Skip onboarding</button><button class="w" id="obreset">Restart onboarding</button></div></div>
@@ -482,6 +485,12 @@ function renderUser(){
     const { error } = await sb.rpc('admin_set_onboarding', { p_user: p.id, p_done: done });
     if (error) { flash(error.message.includes('function') ? 'Run admin_onboarding.sql in Supabase first.' : error.message); return renderUser(); }
     await loadAll(); flash(done ? 'Onboarding skipped. They go straight in.' : 'Onboarding restarted. They will see it at next login.', 'ok'); renderUser();
+  };
+  document.getElementById('pwreset').onclick = async () => {
+    if (!p.email) { flash('This user has no email on file.'); return renderUser(); }
+    if (!confirm('Send a password reset email to ' + p.email + '?')) return;
+    const { error } = await sb.auth.resetPasswordForEmail(p.email);
+    flash(error ? error.message : 'Reset email sent to ' + p.email + '.', error ? 'err' : 'ok'); renderUser();
   };
   document.getElementById('obskip').onclick = () => ob(true, false);
   document.getElementById('obreset').onclick = () => { if (confirm('Restart onboarding for this user? Their personal documents will be deleted.')) ob(false, true); };
