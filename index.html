@@ -54,6 +54,7 @@ const SUPABASE_URL = 'https://wpqmqduwbqlrmhhtqsnw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcW1xZHV3YnFscm1oaHRxc253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTMxMzksImV4cCI6MjEwNzk4OTEzOX0.eTHiQJyEJzE_gC4ZRTFnF3sV1Sknm1CqWy7_SfI8pFc';
 const DOC_BUCKET = 'documents';
 const ADMIN_EMAIL = 'sekhobokatleho@gmail.com';
+const USER_APP_URL = 'https://drivermatch-katleho.netlify.app/';
 /* ==================== */
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -86,21 +87,22 @@ function renderLogin(err){
 
 /* ---------- data ---------- */
 async function loadAll(){
-  const [dp, pr, vh, dc, tk, us, mt] = await Promise.all([
+  const [dp, pr, vh, dc, tk, us, mt, cn] = await Promise.all([
     sb.from('driver_profiles').select('*'),
     sb.from('profiles').select('id,full_name,phone,email,role,age,address,onboarded,onboarding_submitted_at'),
     sb.from('vehicles').select('*'),
     sb.from('documents').select('*').order('created_at', { ascending:false }),
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
     sb.from('user_status').select('*'),
-    sb.from('matches').select('*')
+    sb.from('matches').select('*'),
+    sb.from('match_cancellations').select('*').order('created_at', { ascending:false })
   ]);
   const bad = [dp, pr, vh, dc].find(r => r.error);
   if (bad) throw new Error(bad.error.message);
   const profiles = {}; pr.data.forEach(p => profiles[p.id] = p);
   const status = {}; (us.error ? [] : us.data).forEach(s => status[s.user_id] = s);
   S.data = { drivers: dp.data, vehicles: vh.data, docs: dc.data, profiles,
-    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data };
+    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data, cancels: cn.error ? [] : cn.data };
 }
 
 /* ---------- shell + nav ---------- */
@@ -121,6 +123,7 @@ function render(){
   if (S.page === 'dash') return renderDash();
   if (S.page === 'obreview') return renderObReview();
   if (S.page === 'matchlist') return renderMatches();
+  if (S.page === 'cancels') return renderCancels();
   if (S.page === 'reports') return renderReports();
   if (S.page === 'messages') return renderMessages();
   if (S.page === 'settings') return renderSettings();
@@ -160,6 +163,11 @@ function renderDash(){
       ${stat(c(ve,'rejected'), 'Vehicles rejected', 'owners:rejected')}
     </div>
     ${matchHtml}
+    <h2>Cancellations</h2>
+    <div class="grid">
+      ${stat(D.cancels.length, 'Cancelled matches', 'cancels:all')}
+      ${stat(D.cancels.filter(x => Date.now() - new Date(x.created_at) < 7*864e5).length, 'Last 7 days', 'cancels:all')}
+    </div>
     <h2>Support & accounts</h2>
     <div class="grid">
       ${stat(tk.filter(t => (t.status||'open') !== 'resolved').length, 'Open reports', 'reports:open')}
@@ -173,8 +181,33 @@ function renderDash(){
     if (w === 'reports') { S.rsec = s || 'open'; return go('reports'); }
     if (w === 'users') return go('settings', s);
     if (w === 'matches') { S.msec = s; return go('matchlist'); }
+    if (w === 'cancels') { S.cwho = 'all'; S.creason = 'all'; return go('cancels'); }
     S.who = w; S.sec = s; go('people');
   });
+}
+
+/* ---------- cancellations ---------- */
+function renderCancels(){
+  const D = S.data, all = D.cancels || [];
+  const who = S.cwho || 'all', rsn = S.creason || 'all';
+  const nm = id => D.profiles[id]?.full_name || '';
+  const reasons = ['all', ...new Set(all.map(c => c.reason).filter(Boolean))];
+  const list = all.filter(c => (who === 'all' || c.cancelled_by_role === who) && (rsn === 'all' || c.reason === rsn));
+  const per = {}; all.forEach(c => { if (c.cancelled_by) per[c.cancelled_by] = (per[c.cancelled_by] || 0) + 1; });
+  const repeat = Object.entries(per).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
+  const byRole = r => all.filter(c => c.cancelled_by_role === r).length;
+  shell(`<button id="bk">← Dashboard</button><h2>Cancelled matches</h2>
+    <div class="subs">${[['all','All (' + all.length + ')'],['driver','Drivers (' + byRole('driver') + ')'],['owner','Owners (' + byRole('owner') + ')']].map(([k,l]) => `<button data-cw="${k}" class="${who===k?'on':''}">${l}</button>`).join('')}</div>
+    <select id="cr">${reasons.map(r => `<option value="${esc(r)}" ${rsn===r?'selected':''}>${r==='all' ? 'All reasons' : esc(r)}</option>`).join('')}</select>
+    ${repeat.length ? `<div class="card"><b>Repeat cancellers</b>${repeat.map(([id, n]) => `<div class="row"><span>${esc(nm(id) || 'User')}</span><span class="tag">${n} cancellations</span></div>`).join('')}</div>` : ''}
+    ${list.length ? list.map(c => `<div class="card">
+      <div class="row"><b>${esc(c.vehicle_label || 'Match')}</b><span class="tag ${c.cancelled_by_role === 'driver' ? 'pending' : 'open'}">by ${esc(c.cancelled_by_role || '?')}</span></div>
+      <div class="mu">${esc(nm(c.driver_id) || 'Driver')} ↔ ${esc(nm(c.owner_id) || 'Owner')}</div>
+      <div class="kv"><span>Reason</span><span>${esc(c.reason || '—')}</span><span>Cancelled by</span><span>${esc(nm(c.cancelled_by) || '—')} (${per[c.cancelled_by] || 1} total)</span><span>Date</span><span>${fmtDate(c.created_at)}</span></div>
+    </div>`).join('') : '<div class="mu">No cancellations here.</div>'}`);
+  document.getElementById('bk').onclick = () => go('dash');
+  app.querySelectorAll('[data-cw]').forEach(b => b.onclick = () => { S.cwho = b.dataset.cw; renderCancels(); });
+  document.getElementById('cr').onchange = e => { S.creason = e.target.value; renderCancels(); };
 }
 
 function renderMatches(){
@@ -489,7 +522,7 @@ function renderUser(){
   document.getElementById('pwreset').onclick = async () => {
     if (!p.email) { flash('This user has no email on file.'); return renderUser(); }
     if (!confirm('Send a password reset email to ' + p.email + '?')) return;
-    const { error } = await sb.auth.resetPasswordForEmail(p.email);
+    const { error } = await sb.auth.resetPasswordForEmail(p.email, { redirectTo: USER_APP_URL });
     flash(error ? error.message : 'Reset email sent to ' + p.email + '.', error ? 'err' : 'ok'); renderUser();
   };
   document.getElementById('obskip').onclick = () => ob(true, false);
