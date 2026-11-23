@@ -34,6 +34,7 @@ button.w{background:var(--am);color:#fff;border-color:var(--am)}
 .tag.pending,.tag.open,.tag.disabled{background:#fdf3dc;color:var(--am)}
 .tag.approved,.tag.resolved,.tag.active{background:#e6f4ec;color:var(--g)}
 .tag.rejected,.tag.blocked{background:#fbe6e3;color:var(--rd)}
+.tag.deleted{background:#2b2f36;color:#fff}
 .kv{display:grid;grid-template-columns:110px 1fr;gap:4px 8px;font-size:15px;margin:8px 0}
 .kv span:nth-child(odd){color:var(--mu)}
 .doc{border:1px solid var(--bd);border-radius:12px;padding:10px;margin:8px 0;background:#fff}
@@ -172,8 +173,9 @@ function renderDash(){
     <div class="grid">
       ${stat(tk.filter(t => (t.status||'open') !== 'resolved').length, 'Open reports', 'reports:open')}
       ${stat(tk.filter(t => t.status === 'resolved').length, 'Resolved reports', 'reports:resolved')}
-      ${stat(st.filter(s => s.status === 'disabled').length, 'Disabled users', 'users:disabled')}
-      ${stat(st.filter(s => s.status === 'blocked').length, 'Blocked users', 'users:blocked')}
+      ${stat(st.filter(s => stOf(s) === 'disabled').length, 'Disabled users', 'users:disabled')}
+      ${stat(st.filter(s => stOf(s) === 'blocked').length, 'Blocked users', 'users:blocked')}
+      ${stat(st.filter(s => stOf(s) === 'deleted').length, 'Deleted users', 'users:deleted')}
     </div>`);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => {
     const [w, s] = el.dataset.go.split(':');
@@ -438,26 +440,29 @@ function renderTicket(){
 }
 
 /* ---------- settings: disable / block / delete ---------- */
-function acctOf(id){ return S.data.status[id]?.status || 'active'; }
+function stOf(s){ if (!s) return 'active'; if (s.status === 'blocked' && /^deleted/i.test(String(s.reason || ''))) return 'deleted'; return s.status || 'active'; }
+function acctOf(id){ return stOf(S.data.status[id]); }
 
 function renderSettings(){
   if (S.uid) return renderUser();
   const isOwner = p => String(p.role || '').toLowerCase().includes('owner');
   const base = Object.values(S.data.profiles).filter(p => p.email !== ADMIN_EMAIL);
-  const nD = base.filter(p => !isOwner(p)).length, nO = base.filter(isOwner).length;
+  const live = base.filter(p => acctOf(p.id) !== 'deleted');
+  const nD = live.filter(p => !isOwner(p)).length, nO = live.filter(isOwner).length, nDel = base.length - live.length;
   const label = S.swho === 'owners' ? 'owner' : 'driver';
   shell(`
     <h2>Manage users</h2>
     <div class="subs">
-      <button data-sw="drivers" class="${S.swho==='drivers'?'on':''}">Drivers (${nD})</button>
-      <button data-sw="owners" class="${S.swho==='owners'?'on':''}">Owners (${nO})</button>
+      <button data-sw="drivers" class="${S.swho==='drivers' && !S.sstat ?'on':''}">Drivers (${nD})</button>
+      <button data-sw="owners" class="${S.swho==='owners' && !S.sstat ?'on':''}">Owners (${nO})</button>
+      <button id="sdel" class="${S.sstat==='deleted'?'on':''}">Deleted (${nDel})</button>
     </div>
     ${S.sstat ? `<div class="mu">Showing ${S.sstat} users (drivers and owners). Tap Drivers or Owners to clear.</div>` : `<div class="mu">Search a ${label}, then disable, block or delete them.</div>`}
     <input id="q" placeholder="Search ${label} name, email or phone" value="${esc(S.q)}">
     <div id="ul"></div>`);
   const draw = () => {
     const q = S.q.trim().toLowerCase();
-    const all = S.sstat ? base.filter(p => acctOf(p.id) === S.sstat) : base.filter(p => S.swho === 'owners' ? isOwner(p) : !isOwner(p));
+    const all = S.sstat ? base.filter(p => acctOf(p.id) === S.sstat) : live.filter(p => S.swho === 'owners' ? isOwner(p) : !isOwner(p));
     const list = all.filter(p => !q || [p.full_name, p.email, p.phone].some(v => String(v || '').toLowerCase().includes(q))).slice(0, 40);
     document.getElementById('ul').innerHTML = list.length ? list.map(p => `
       <div class="card click" data-u="${esc(p.id)}">
@@ -466,6 +471,7 @@ function renderSettings(){
     app.querySelectorAll('[data-u]').forEach(c => c.onclick = () => { S.uid = c.dataset.u; S.msg=''; renderSettings(); });
   };
   app.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { S.swho = b.dataset.sw; S.q = ''; S.sstat = ''; S.msg=''; renderSettings(); });
+  document.getElementById('sdel').onclick = () => { S.sstat = 'deleted'; S.q = ''; S.msg=''; renderSettings(); };
   document.getElementById('q').oninput = e => { S.q = e.target.value; draw(); };
   draw();
 }
@@ -475,16 +481,39 @@ async function setAcct(uid, status, reason){
   return error ? error.message : null;
 }
 
+async function dropFiles(paths){
+  paths = paths.filter(Boolean);
+  if (!paths.length) return;
+  try { await sb.storage.from(DOC_BUCKET).remove(paths); } catch (e) {}
+}
+
 function renderUser(){
   const p = S.data.profiles[S.uid];
   if (!p) { S.uid = null; return renderSettings(); }
   const st = acctOf(p.id), why = S.data.status[p.id]?.reason;
-  shell(`
+  const vids = S.data.vehicles.filter(v => v.owner_id === p.id).map(v => v.id);
+  const head = `
     <button id="back">← Back</button>
     <h2>${esc(p.full_name || 'User')}</h2>
     <div class="card"><div class="kv"><span>Role</span><span>${esc(p.role || '—')}</span><span>Phone</span><span>${esc(p.phone || '—')}</span>
       <span>Email</span><span>${esc(p.email || '—')}</span><span>Age</span><span>${esc(p.age || '—')}</span><span>Address</span><span>${esc(p.address || '—')}</span><span>Account</span><span class="tag ${st}" style="width:fit-content">${st}</span></div>
-      ${why ? `<div class="mu">Reason: ${esc(why)}</div>` : ''}</div>
+      ${why ? `<div class="mu">Reason: ${esc(why)}</div>` : ''}</div>`;
+  const startCard = `
+    <div class="card"><b>Start over (register from scratch)</b>
+      <div class="mu">Wipes their name, phone, age, address, vehicles, documents and driver data (their role stays), and makes them active again. At next login they go through registration and onboarding as a brand new user, using the same login. Cannot be undone.</div>
+      <div class="acts"><button class="w" id="startover">Start over</button></div></div>`;
+
+  if (st === 'deleted') {
+    shell(head + `
+    <div class="card"><b>This user is deleted</b>
+      <div class="mu">They are blocked and hidden from Drivers and Owners, but their data is still kept. Restore brings them back exactly as they were.</div>
+      <div class="acts"><button class="p" id="restore">Restore user</button></div></div>
+    ${startCard}
+    <div class="card"><b>Delete permanently</b>
+      <div class="mu">Removes their profile, vehicles, documents and driver data for good. Cannot be restored.</div>
+      <div class="acts"><button class="d" id="purge">Delete permanently</button></div></div>`);
+  } else {
+    shell(head + `
     <div class="card">
       <textarea id="why" rows="2" placeholder="Reason (kept on record)"></textarea>
       <div class="acts">
@@ -498,12 +527,15 @@ function renderUser(){
       <div class="mu">Sends the user an email with a link to choose a new password. You never see their password. Not for Google sign-ins.</div>
       <div class="acts"><button class="w" id="pwreset">Send password reset email</button></div></div>
     <div class="card"><b>Onboarding: ${p.onboarded ? 'done' : 'not done'}</b>
-      <div class="mu">For testing. Skip marks them as verified so they go straight into the app. Restart deletes their personal documents (ID, selfie, licence and so on, not vehicle photos) and shows them the onboarding screens again at next login.</div>
+      <div class="mu">Skip marks them as verified so they go straight into the app. Restart deletes their personal documents (ID, selfie, licence and so on, not vehicle photos) and shows them the onboarding screens again at next login.</div>
       <div class="acts"><button class="p" id="obskip">Skip onboarding</button><button class="w" id="obreset">Restart onboarding</button></div></div>
+    ${startCard}
     <div class="card"><b>Delete user</b>
-      <div class="mu">Removes their profile, vehicles, documents and driver data, and blocks the login. Cannot be undone.</div>
+      <div class="mu">Blocks the login and hides them from Drivers and Owners. Their data is kept, so you can restore them any time from the Deleted list.</div>
       <div class="acts"><button class="d" id="del">Delete user</button></div></div>`);
+  }
   document.getElementById('back').onclick = () => { S.uid = null; S.msg=''; renderSettings(); };
+
   const change = async status => {
     const e = await setAcct(p.id, status, document.getElementById('why').value.trim());
     if (e) { flash(e.includes('row-level') ? 'Blocked by policy. Run the support SQL.' : e); return renderUser(); }
@@ -513,25 +545,68 @@ function renderUser(){
   if (a) a.onclick = () => change('active');
   if (d) d.onclick = () => change('disabled');
   if (b) b.onclick = () => change('blocked');
+
   const ob = async (done, clear) => {
     if (clear) { const r = await sb.from('documents').delete().eq('user_id', p.id).is('vehicle_id', null); if (r.error) { flash(r.error.message); return renderUser(); } }
     const { error } = await sb.rpc('admin_set_onboarding', { p_user: p.id, p_done: done });
     if (error) { flash(error.message.includes('function') ? 'Run admin_onboarding.sql in Supabase first.' : error.message); return renderUser(); }
     await loadAll(); flash(done ? 'Onboarding skipped. They go straight in.' : 'Onboarding restarted. They will see it at next login.', 'ok'); renderUser();
   };
-  document.getElementById('pwreset').onclick = async () => {
+  const pw = document.getElementById('pwreset');
+  if (pw) pw.onclick = async () => {
     if (!p.email) { flash('This user has no email on file.'); return renderUser(); }
     if (!confirm('Send a password reset email to ' + p.email + '?')) return;
     const { error } = await sb.auth.resetPasswordForEmail(p.email, { redirectTo: USER_APP_URL });
     flash(error ? error.message : 'Reset email sent to ' + p.email + '.', error ? 'err' : 'ok'); renderUser();
   };
-  document.getElementById('obskip').onclick = () => ob(true, false);
-  document.getElementById('obreset').onclick = () => { if (confirm('Restart onboarding for this user? Their personal documents will be deleted.')) ob(false, true); };
-  document.getElementById('del').onclick = async () => {
-    if (!confirm('Delete this user and all their data? This cannot be undone.')) return;
-    const e = await setAcct(p.id, 'blocked', 'Deleted by admin');
+  const os = document.getElementById('obskip'), orr = document.getElementById('obreset');
+  if (os) os.onclick = () => ob(true, false);
+  if (orr) orr.onclick = () => { if (confirm('Restart onboarding for this user? Their personal documents will be deleted.')) ob(false, true); };
+
+  /* soft delete + restore */
+  const del = document.getElementById('del');
+  if (del) del.onclick = async () => {
+    if (!confirm('Delete this user? They are blocked and hidden, but their data is kept so you can restore them.')) return;
+    const reason = document.getElementById('why').value.trim();
+    const e = await setAcct(p.id, 'blocked', 'DELETED' + (reason ? ': ' + reason : ' by admin'));
+    if (e) { flash(e.includes('row-level') ? 'Blocked by policy. Run the support SQL.' : e); return renderUser(); }
+    await loadAll(); flash('User deleted. Find them under Deleted to restore.', 'ok'); renderUser();
+  };
+  const rs = document.getElementById('restore');
+  if (rs) rs.onclick = async () => {
+    const e = await setAcct(p.id, 'active', null);
     if (e) { flash(e); return renderUser(); }
-    const vids = S.data.vehicles.filter(v => v.owner_id === p.id).map(v => v.id);
+    await loadAll(); flash('User restored. They can log in again.', 'ok'); renderUser();
+  };
+
+  /* start over: wipe everything so they register from scratch */
+  const so = document.getElementById('startover');
+  if (so) so.onclick = async () => {
+    if (!confirm('Start over for ' + (p.full_name || 'this user') + '? All their details, vehicles and documents are wiped and they register from scratch. Cannot be undone.')) return;
+    const files = S.data.docs.filter(x => x.user_id === p.id || vids.includes(x.vehicle_id)).map(x => x.file_path);
+    const fails = [];
+    const run = async (label, q) => { const r = await q.select(); if (r.error) fails.push(label + ': ' + r.error.message); };
+    await run('documents', sb.from('documents').delete().eq('user_id', p.id));
+    if (vids.length) await run('vehicle documents', sb.from('documents').delete().in('vehicle_id', vids));
+    await run('vehicles', sb.from('vehicles').delete().eq('owner_id', p.id));
+    await run('driver profile', sb.from('driver_profiles').delete().eq('user_id', p.id));
+    const rpc = await sb.rpc('admin_set_onboarding', { p_user: p.id, p_done: false });
+    if (rpc.error) fails.push('onboarding: ' + (rpc.error.message.includes('function') ? 'run admin_onboarding.sql first' : rpc.error.message));
+    const pr = await sb.from('profiles').update({ full_name: null, phone: null, age: null, address: null, onboarded: false, onboarding_submitted_at: null }).eq('id', p.id).select();
+    if (pr.error) fails.push('profile details: ' + pr.error.message); else if (!pr.data.length) fails.push('profile details: blocked by policy');
+    const e = await setAcct(p.id, 'active', null);
+    if (e) fails.push('account status: ' + e);
+    if (!fails.length) await dropFiles(files);
+    await loadAll();
+    flash(fails.length ? 'Started over, but some steps failed: ' + fails.join(' | ') : 'Started over. They register from scratch at next login.', fails.length ? 'err' : 'ok');
+    renderUser();
+  };
+
+  /* permanent delete (only reachable from the Deleted view) */
+  const pg = document.getElementById('purge');
+  if (pg) pg.onclick = async () => {
+    if (!confirm('Delete permanently? Their data is removed for good and cannot be restored.')) return;
+    const files = S.data.docs.filter(x => x.user_id === p.id || vids.includes(x.vehicle_id)).map(x => x.file_path);
     let n = 0, fails = 0;
     const del = async q => { const r = await q.select(); if (r.error) fails++; else n += r.data.length; };
     await del(sb.from('documents').delete().eq('user_id', p.id));
@@ -539,8 +614,9 @@ function renderUser(){
     await del(sb.from('vehicles').delete().eq('owner_id', p.id));
     await del(sb.from('driver_profiles').delete().eq('user_id', p.id));
     await del(sb.from('profiles').delete().eq('id', p.id));
+    if (!fails) await dropFiles(files);
     await loadAll(); S.uid = null;
-    flash(`Deleted ${n} records and blocked the login.` + (fails ? ` ${fails} step(s) failed (linked data or missing delete policy).` : ''), fails ? 'err' : 'ok');
+    flash(`Permanently deleted ${n} records.` + (fails ? ` ${fails} step(s) failed (linked data or missing delete policy).` : ''), fails ? 'err' : 'ok');
     renderSettings();
   };
 }
