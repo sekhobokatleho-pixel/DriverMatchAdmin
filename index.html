@@ -500,8 +500,10 @@ function renderUser(){
       ${why ? `<div class="mu">Reason: ${esc(why)}</div>` : ''}</div>`;
   const startCard = `
     <div class="card"><b>Start over (register from scratch)</b>
-      <div class="mu">Wipes their name, phone, age, address, vehicles, documents and driver data (their role stays), and makes them active again. At next login they go through registration and onboarding as a brand new user, using the same login. Cannot be undone.</div>
-      <div class="acts"><button class="w" id="startover">Start over</button></div></div>`;
+      <div class="mu">Wipes their name, phone, age, address, vehicles, documents and driver offer/location (their role and driver record stay), and makes them active again. At next login they go through registration and onboarding as a brand new user, using the same login. Cannot be undone.</div>
+      <div class="acts"><button class="w" id="startover">Start over</button></div>
+      <div class="mu" style="margin-top:14px"><b>Full reset</b>: also deletes their login, so the same email can sign up again as a brand new user. Needs admin_reset_user.sql run once in Supabase. Cannot be undone.</div>
+      <div class="acts"><button class="d" id="fullreset">Full reset (free the email)</button></div></div>`;
 
   if (st === 'deleted') {
     shell(head + `
@@ -589,7 +591,7 @@ function renderUser(){
     await run('documents', sb.from('documents').delete().eq('user_id', p.id));
     if (vids.length) await run('vehicle documents', sb.from('documents').delete().in('vehicle_id', vids));
     await run('vehicles', sb.from('vehicles').delete().eq('owner_id', p.id));
-    await run('driver profile', sb.from('driver_profiles').delete().eq('user_id', p.id));
+    await run('driver offer and location', sb.from('driver_profiles').update({ weekly_offer: null, city: null, suburb: null, lat: null, lng: null, location_consent: null, location_updated_at: null }).eq('user_id', p.id));
     const rpc = await sb.rpc('admin_set_onboarding', { p_user: p.id, p_done: false });
     if (rpc.error) fails.push('onboarding: ' + (rpc.error.message.includes('function') ? 'run admin_onboarding.sql first' : rpc.error.message));
     const pr = await sb.from('profiles').update({ full_name: null, phone: null, age: null, address: null, onboarded: false, onboarding_submitted_at: null }).eq('id', p.id).select();
@@ -600,6 +602,22 @@ function renderUser(){
     await loadAll();
     flash(fails.length ? 'Started over, but some steps failed: ' + fails.join(' | ') : 'Started over. They register from scratch at next login.', fails.length ? 'err' : 'ok');
     renderUser();
+  };
+
+  /* full reset: delete login + data so they can register again with the same email */
+  const fr = document.getElementById('fullreset');
+  if (fr) fr.onclick = async () => {
+    if (!confirm('FULL RESET for ' + (p.full_name || p.email || 'this user') + '?\n\nTheir login and ALL their data are deleted. They can then sign up again with the same email as a new user. Cannot be undone.')) return;
+    const files = S.data.docs.filter(x => x.user_id === p.id || vids.includes(x.vehicle_id)).map(x => x.file_path);
+    const { error } = await sb.rpc('admin_reset_user', { p_user: p.id });
+    if (error) {
+      flash(/function|schema cache/i.test(error.message) ? 'Run admin_reset_user.sql in Supabase first.' : error.message, 'err');
+      return renderUser();
+    }
+    await dropFiles(files);
+    await loadAll(); S.uid = null;
+    flash('Full reset done. They can sign up again with the same email.', 'ok');
+    renderSettings();
   };
 
   /* permanent delete (only reachable from the Deleted view) */
