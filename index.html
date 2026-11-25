@@ -44,6 +44,12 @@ button.w{background:var(--am);color:#fff;border-color:var(--am)}
 .stat{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;cursor:pointer}
 .stat .n{font-size:28px;font-weight:700}
 .stat.static{cursor:default}
+#toast{position:fixed;top:50%;left:50%;width:max-content;min-width:200px;max-width:min(86vw,340px);display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 26px 22px;border-radius:22px;text-align:center;font-size:15px;font-weight:500;line-height:1.45;color:#fff;background:rgba(27,36,48,.94);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 18px 48px rgba(10,20,30,.4);z-index:9999;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,-46%) scale(.96);transition:opacity .2s ease,transform .2s ease,visibility 0s linear .2s}
+#toast.show{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,-50%) scale(1);transition:opacity .2s ease,transform .2s ease}
+#toast .ti{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;line-height:1}
+#toast.ok .ti{background:rgba(52,199,120,.2);color:#6fe3a2;box-shadow:inset 0 0 0 1.5px rgba(111,227,162,.55)}
+#toast.bad .ti{background:rgba(255,120,110,.2);color:#ff9d94;box-shadow:inset 0 0 0 1.5px rgba(255,157,148,.55)}
+#toast .tm{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -65,7 +71,17 @@ const S = { mt:'', mb:'', ma:'all', page:'dash', who:'drivers', sec:'pending', o
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm = s => { s = (s || 'pending').toLowerCase(); if (['approved','verified'].includes(s)) return 'approved'; if (s === 'rejected') return 'rejected'; return 'pending'; };
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-ZA') : '';
-function flash(m, t){ S.msg = m; S.msgType = t || 'err'; }
+let _tt;
+function toast(m, t){
+  if (!m) return;
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.onclick = () => el.className = ''; document.body.appendChild(el); }
+  const ok = t === 'ok', i = document.createElement('span'), x = document.createElement('span');
+  el.innerHTML = ''; i.className = 'ti'; i.textContent = ok ? '\u2713' : '!'; x.className = 'tm'; x.textContent = m; el.append(i, x);
+  el.className = 'show ' + (ok ? 'ok' : 'bad');
+  clearTimeout(_tt); _tt = setTimeout(() => el.className = '', Math.min(6000, Math.max(2800, 1800 + String(m).length * 45)));
+}
+function flash(m, t){ toast(m, t); }
 
 /* ---------- login ---------- */
 function renderLogin(err){
@@ -74,21 +90,20 @@ function renderLogin(err){
     <div class="card">
       <input id="em" type="email" placeholder="Admin email" autocomplete="username" value="${esc(ADMIN_EMAIL)}">
       <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
-      <div class="err">${esc(err || '')}</div>
       <button class="p" id="go">Log in</button>
     </div>`;
   document.getElementById('go').onclick = async () => {
     const email = document.getElementById('em').value.trim();
     const password = document.getElementById('pw').value;
     const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return renderLogin(error.message);
+    if (error) { renderLogin(); return toast(error.message); }
     start();
   };
 }
 
 /* ---------- data ---------- */
 async function loadAll(){
-  const [dp, pr, vh, dc, tk, us, mt, cn] = await Promise.all([
+  const [dp, pr, vh, dc, tk, us, mt, cn, rq] = await Promise.all([
     sb.from('driver_profiles').select('*'),
     sb.from('profiles').select('id,full_name,phone,email,role,age,address,onboarded,onboarding_submitted_at'),
     sb.from('vehicles').select('*'),
@@ -96,14 +111,27 @@ async function loadAll(){
     sb.from('support_tickets').select('*').order('created_at', { ascending:false }),
     sb.from('user_status').select('*'),
     sb.from('matches').select('*'),
-    sb.from('match_cancellations').select('*').order('created_at', { ascending:false })
+    sb.from('match_cancellations').select('*').order('created_at', { ascending:false }),
+    sb.from('requests').select('*')
   ]);
   const bad = [dp, pr, vh, dc].find(r => r.error);
   if (bad) throw new Error(bad.error.message);
   const profiles = {}; pr.data.forEach(p => profiles[p.id] = p);
   const status = {}; (us.error ? [] : us.data).forEach(s => status[s.user_id] = s);
+  /* a match = an accepted request (driver + vehicle -> owner). Falls back to a 'matches' table if requests can't be read. */
+  const vById = {}; vh.data.forEach(v => vById[v.id] = v);
+  const vTxt = v => v ? [v.vehicle_code, [v.make, v.model, v.year].filter(Boolean).join(' ')].filter(Boolean).join(' · ') : '';
+  let matches = null;
+  if (!rq.error) {
+    matches = rq.data.filter(r => r.status === 'accepted').map(r => {
+      const v = vById[r.vehicle_id];
+      return { id: r.id, driver_id: r.driver_id, owner_id: v ? v.owner_id : null, vehicle: vTxt(v), status: 'active', created_at: r.responded_at || r.created_at };
+    });
+  } else if (!mt.error) {
+    matches = mt.data.map(m => ({ ...m, vehicle: vTxt(vById[m.vehicle_id]), status: m.status || 'unknown' }));
+  }
   S.data = { drivers: dp.data, vehicles: vh.data, docs: dc.data, profiles,
-    tickets: tk.error ? [] : tk.data, status, matches: mt.error ? null : mt.data, cancels: cn.error ? [] : cn.data };
+    tickets: tk.error ? [] : tk.data, status, matches, cancels: cn.error ? [] : cn.data };
 }
 
 /* ---------- shell + nav ---------- */
@@ -114,7 +142,6 @@ function shell(html){
   app.innerHTML = `
     <div class="top"><h1>DriverMatch Admin</h1><button id="out">Log out</button></div>
     <div class="tabs">${tabs.map(([k,l]) => `<button data-p="${k}" class="${S.page===k?'on':''}">${l}</button>`).join('')}</div>
-    <div class="${S.msgType}">${esc(S.msg)}</div>
     ${html}`;
   document.getElementById('out').onclick = async () => { await sb.auth.signOut(); renderLogin(); };
   app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => go(b.dataset.p));
@@ -141,7 +168,7 @@ function renderDash(){
   let matchHtml = '';
   if (D.matches) {
     const by = {}; D.matches.forEach(m => { const k = m.status || 'unknown'; by[k] = (by[k] || 0) + 1; });
-    matchHtml = `<h2>Matches</h2><div class="grid">${stat(D.matches.length, 'Total matches', 'matches:all')}${Object.entries(by).map(([k,v]) => stat(v, esc(k), 'matches:' + k)).join('')}</div>`;
+    matchHtml = `<h2>Matches</h2><div class="grid">${stat(D.matches.length, Object.keys(by).length > 1 ? 'Total matches' : 'Matched pairs', 'matches:all')}${Object.keys(by).length > 1 ? Object.entries(by).map(([k,v]) => stat(v, esc(k), 'matches:' + k)).join('') : ''}</div>`;
   }
   shell(`
     <h2>New signups</h2>
@@ -182,7 +209,7 @@ function renderDash(){
     if (w === 'obreview') return go('obreview');
     if (w === 'reports') { S.rsec = s || 'open'; return go('reports'); }
     if (w === 'users') return go('settings', s);
-    if (w === 'matches') { S.msec = s; return go('matchlist'); }
+    if (w === 'matches') { S.msec = s; S.mq = ''; return go('matchlist'); }
     if (w === 'cancels') { S.cwho = 'all'; S.creason = 'all'; return go('cancels'); }
     S.who = w; S.sec = s; go('people');
   });
@@ -214,14 +241,31 @@ function renderCancels(){
 
 function renderMatches(){
   const D = S.data, all = D.matches || [], st = m => m.status || 'unknown';
+  if (!S.msec) S.msec = 'all';
   const ks = ['all', ...new Set(all.map(st))];
-  const list = S.msec === 'all' ? all : all.filter(m => st(m) === S.msec);
-  const nm = id => D.profiles[id]?.full_name;
-  shell(`<button id="bk">← Dashboard</button><h2>Matches</h2>
-    <div class="subs">${ks.map(k => `<button data-m="${esc(k)}" class="${S.msec===k?'on':''}">${esc(k)} (${k==='all' ? all.length : all.filter(m => st(m)===k).length})</button>`).join('')}</div>
-    ${list.length ? list.map(m => `<div class="card"><div class="row"><b>${esc([nm(m.driver_id), nm(m.owner_id)].filter(Boolean).join(' ↔ ') || 'Match')}</b><span class="tag">${esc(st(m))}</span></div><div class="mu">${m.created_at ? fmtDate(m.created_at) : ''}</div></div>`).join('') : '<div class="mu">No matches here.</div>'}`);
+  const P = id => D.profiles[id] || {};
+  const nm = id => P(id).full_name || '';
+  const person = (label, id) => { const p = P(id); return `<div class="kv"><span>${label}</span><span><b>${esc(p.full_name || '—')}</b></span><span>Phone</span><span>${esc(p.phone || '—')}</span><span>Email</span><span>${esc(p.email || '—')}</span></div>`; };
+  shell(`<button id="bk">← Dashboard</button><h2>Matched users</h2>
+    <div class="mu">Every driver and owner whose request was accepted.</div>
+    ${ks.length > 2 ? `<div class="subs">${ks.map(k => `<button data-m="${esc(k)}" class="${S.msec===k?'on':''}">${esc(k)} (${k==='all' ? all.length : all.filter(m => st(m)===k).length})</button>`).join('')}</div>` : ''}
+    <input id="mq" placeholder="Search by name, email or phone" value="${esc(S.mq || '')}">
+    <div id="ml"></div>`);
+  const draw = () => {
+    const q = (S.mq || '').trim().toLowerCase();
+    let list = S.msec === 'all' ? all : all.filter(m => st(m) === S.msec);
+    list = list.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    if (q) list = list.filter(m => [P(m.driver_id), P(m.owner_id)].some(p => [p.full_name, p.email, p.phone].some(v => String(v || '').toLowerCase().includes(q))));
+    document.getElementById('ml').innerHTML = list.length ? list.map(m => `<div class="card">
+      <div class="row"><b>${esc([nm(m.driver_id), nm(m.owner_id)].filter(Boolean).join(' ↔ ') || 'Match')}</b><span class="tag ${esc(st(m))}">${esc(st(m))}</span></div>
+      <div class="mu">${esc(m.vehicle || 'Vehicle')}${m.created_at ? ' · matched ' + fmtDate(m.created_at) : ''}</div>
+      ${person('Driver', m.driver_id)}${person('Owner', m.owner_id)}</div>`).join('')
+      : `<div class="mu">${q ? 'No matches found for that search.' : 'No matches here.'}</div>${!q && !all.length ? '<div class="mu" style="margin-top:6px">If you know there are matches but none show, the admin read policy on the requests table is missing in Supabase.</div>' : ''}`;
+  };
   document.getElementById('bk').onclick = () => go('dash');
   app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.msec = b.dataset.m; renderMatches(); });
+  document.getElementById('mq').oninput = e => { S.mq = e.target.value; draw(); };
+  draw();
 }
 
 /* ---------- people (drivers / owners) ---------- */
@@ -292,7 +336,6 @@ async function renderDetail(){
       ${it.reason ? `<div class="err">Reason: ${esc(it.reason)}</div>` : ''}</div>
     <h2>Documents (${docs.length})</h2>
     <div id="docs"><div class="mu">Loading documents…</div></div>
-    <div class="${S.msgType}" id="msg">${esc(S.msg)}</div>
     <div class="card">
       <textarea id="why" rows="2" placeholder="Reason (required for rejecting or revoking)"></textarea>
       <div class="acts">
@@ -303,7 +346,7 @@ async function renderDetail(){
     </div>`;
   document.getElementById('back').onclick = () => { S.openId = null; S.msg=''; renderList(); };
 
-  const showMsg = m => { const e = document.getElementById('msg'); e.className = 'err'; e.textContent = m; };
+  const showMsg = m => toast(m);
   const setStatus = async (status, needReason) => {
     const reason = document.getElementById('why').value.trim();
     if (needReason && !reason) return showMsg('Please type a reason first.');
@@ -355,16 +398,15 @@ async function renderObReview(){
   shell(`<button id="bk">← Back</button><h2>${esc(p.full_name || 'User')}</h2>
     <div class="card"><div class="kv"><span>Role</span><span>${esc(p.role || '—')}</span><span>Age</span><span>${esc(p.age || '—')}</span><span>Address</span><span>${esc(p.address || '—')}</span><span>Phone</span><span>${esc(p.phone || '—')}</span><span>Email</span><span>${esc(p.email || '—')}</span></div></div>
     <h2>Documents (${docs.length})</h2><div id="docs"><div class="mu">Loading documents…</div></div>
-    <div class="err" id="msg"></div>
     <div class="card"><textarea id="why" rows="2" placeholder="Reason (required for rejecting)"></textarea>
       <div class="acts"><button class="p" id="ap">Approve</button><button class="d" id="rj">Reject</button></div>
       <div class="mu" style="margin-top:10px">Approve lets them into the app. Reject sends them back to upload their documents again, with your reason.</div></div>`);
   document.getElementById('bk').onclick = () => { S.obid = null; renderObReview(); };
   const review = async ok => {
-    const why = document.getElementById('why').value.trim(), m = document.getElementById('msg');
-    if (!ok && !why) { m.textContent = 'Please type a reason first.'; return; }
+    const why = document.getElementById('why').value.trim();
+    if (!ok && !why) { toast('Please type a reason first.'); return; }
     const { error } = await sb.rpc('admin_review_onboarding', { p_user: p.id, p_approve: ok, p_reason: ok ? null : why });
-    if (error) { m.textContent = error.message.includes('function') ? 'Run admin_onboarding.sql in Supabase first.' : error.message; return; }
+    if (error) { toast(error.message.includes('function') ? 'Run admin_onboarding.sql in Supabase first.' : error.message); return; }
     await loadAll(); S.obid = null;
     flash(ok ? 'Approved. They can enter the app.' : 'Rejected. They must upload again.', 'ok'); renderObReview();
   };
